@@ -1,0 +1,115 @@
+/* ============================================================
+   PWA Mobile Styles - مشكاة المعرفة
+   ملف مستقل تمامًا - لا يعدل شيئًا في style.css
+   ============================================================ */
+
+/* الزر العائم لقائمة الجوال */
+#pwaMenuBtn {
+  display: none;
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 9999;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.45);
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+#pwaMenuBtn:active { transform: scale(0.92); }
+
+/* الطبقة المعتمة */
+#pwaOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+}
+
+/* ============================================================
+   تعديلات الجوال - تستخدم صنف الجسم pwa-mobile
+   ============================================================ */
+@media (max-width: 900px) {
+
+  html, body.pwa-mobile { overflow-x: hidden; }
+
+  /* إظهار زر القائمة */
+  body.pwa-mobile #pwaMenuBtn { display: flex; }
+
+  /* القوائم الجانبية تتحول لدُرج */
+  body.pwa-mobile .sidebar,
+  body.pwa-mobile .side-bar,
+  body.pwa-mobile aside,
+  body.pwa-mobile .nav-side {
+    position: fixed;
+    right: -100%;
+    top: 0;
+    width: 270px;
+    max-width: 82vw;
+    height: 100vh;
+    z-index: 9997;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.6);
+  }
+  body.pwa-mobile .sidebar.open,
+  body.pwa-mobile .side-bar.open,
+  body.pwa-mobile aside.open,
+  body.pwa-mobile .nav-side.open {
+    right: 0;
+  }
+
+  /* منع التمرير الأفقي */
+  body.pwa-mobile { overflow-x: hidden; }
+
+  /* الجداول قابلة للتمرير */
+  body.pwa-mobile table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  body.pwa-mobile th,
+  body.pwa-mobile td { padding: 8px; }
+
+  /* الأزرار أوضح للمس */
+  body.pwa-mobile button,
+  body.pwa-mobile .btn {
+    min-height: 42px;
+    border-radius: 10px;
+  }
+
+  /* منع تكبير iOS عند التركيز على الحقول */
+  body.pwa-mobile input,
+  body.pwa-mobile select,
+  body.pwa-mobile textarea {
+    font-size: 16px !important;
+  }
+
+  /* الفيديو بعرض كامل */
+  body.pwa-mobile video,
+  body.pwa-mobile iframe {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+  }
+}
+
+/* شاشات صغيرة جدًا */
+@media (max-width: 480px) {
+  body.pwa-mobile { font-size: 13px; }
+}
+
+/* عند التثبيت كتطبيق */
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top); }
+}
