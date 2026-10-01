@@ -1,115 +1,101 @@
 /* ============================================================
-   PWA Mobile Styles - مشكاة المعرفة
-   ملف مستقل تمامًا - لا يعدل شيئًا في style.css
+   PWA FORCE v99
    ============================================================ */
+(function(){
+  'use strict';
+  console.log('PWA v99 running');
 
-/* الزر العائم لقائمة الجوال */
-#pwaMenuBtn {
-  display: none;
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 9999;
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-  border: none;
-  color: #fff;
-  font-size: 22px;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.45);
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
-}
-#pwaMenuBtn:active { transform: scale(0.92); }
+  function isMobile(){ return window.innerWidth <= 900; }
 
-/* الطبقة المعتمة */
-#pwaOverlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  z-index: 9998;
-}
+  function build(){
+    if (!isMobile()) {
+      document.body.classList.remove('pwa-mobile');
+      return;
+    }
+    document.body.classList.add('pwa-mobile');
 
-/* ============================================================
-   تعديلات الجوال - تستخدم صنف الجسم pwa-mobile
-   ============================================================ */
-@media (max-width: 900px) {
+    // Header
+    if (!document.getElementById('pwaHeader')) {
+      document.body.insertAdjacentHTML('afterbegin',
+        '<header id="pwaHeader">' +
+          '<button class="ph-btn" id="phMenu">☰</button>' +
+          '<div><span class="ph-brand-ar">مشكاة المعرفة</span>' +
+          '<span class="ph-brand-en">MISHKAT AL-MAARIFA</span></div>' +
+          '<button class="ph-btn" id="phUser">🎓</button>' +
+        '</header>');
+    }
 
-  html, body.pwa-mobile { overflow-x: hidden; }
+    // Overlay
+    if (!document.getElementById('pwaOverlay')) {
+      document.body.insertAdjacentHTML('beforeend', '<div id="pwaOverlay"></div>');
+    }
 
-  /* إظهار زر القائمة */
-  body.pwa-mobile #pwaMenuBtn { display: flex; }
+    // Bottom Nav
+    if (!document.getElementById('pwaNav')) {
+      var tabs = [
+        {id:'dashboard', ico:'🏠', label:'الرئيسية'},
+        {id:'lessons',   ico:'📚', label:'الدروس'},
+        {id:'quizzes',   ico:'🧠', label:'الاختبارات'},
+        {id:'files',     ico:'📁', label:'الملفات'},
+        {id:'more',      ico:'☰', label:'المزيد'}
+      ];
+      var html = '<nav id="pwaNav">';
+      tabs.forEach(function(t){
+        html += '<button class="pn-item" data-nav="'+t.id+'">' +
+          '<span class="pn-ico">'+t.ico+'</span>' +
+          '<span class="pn-lbl">'+t.label+'</span>' +
+        '</button>';
+      });
+      html += '</nav>';
+      document.body.insertAdjacentHTML('beforeend', html);
+    }
 
-  /* القوائم الجانبية تتحول لدُرج */
-  body.pwa-mobile .sidebar,
-  body.pwa-mobile .side-bar,
-  body.pwa-mobile aside,
-  body.pwa-mobile .nav-side {
-    position: fixed;
-    right: -100%;
-    top: 0;
-    width: 270px;
-    max-width: 82vw;
-    height: 100vh;
-    z-index: 9997;
-    transition: right 0.3s ease;
-    overflow-y: auto;
-    box-shadow: -10px 0 40px rgba(0,0,0,0.6);
-  }
-  body.pwa-mobile .sidebar.open,
-  body.pwa-mobile .side-bar.open,
-  body.pwa-mobile aside.open,
-  body.pwa-mobile .nav-side.open {
-    right: 0;
-  }
+    // Handlers
+    var menuBtn = document.getElementById('phMenu');
+    if (menuBtn) menuBtn.onclick = openDrawer;
 
-  /* منع التمرير الأفقي */
-  body.pwa-mobile { overflow-x: hidden; }
+    document.querySelectorAll('.pn-item').forEach(function(b){
+      b.onclick = function(){
+        var id = b.dataset.nav;
+        if (id === 'more') { openDrawer(); return; }
+        var target = document.querySelector('.sidebar .nav-item[data-nav="'+id+'"]');
+        if (target) target.click();
+        document.querySelectorAll('.pn-item').forEach(function(x){
+          x.classList.toggle('active', x.dataset.nav === id);
+        });
+      };
+    });
 
-  /* الجداول قابلة للتمرير */
-  body.pwa-mobile table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-    font-size: 12px;
-  }
-  body.pwa-mobile th,
-  body.pwa-mobile td { padding: 8px; }
-
-  /* الأزرار أوضح للمس */
-  body.pwa-mobile button,
-  body.pwa-mobile .btn {
-    min-height: 42px;
-    border-radius: 10px;
+    var ov = document.getElementById('pwaOverlay');
+    if (ov) ov.onclick = closeDrawer;
   }
 
-  /* منع تكبير iOS عند التركيز على الحقول */
-  body.pwa-mobile input,
-  body.pwa-mobile select,
-  body.pwa-mobile textarea {
-    font-size: 16px !important;
+  function openDrawer(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('pwaOverlay');
+    if (sb) sb.classList.add('open');
+    if (ov) ov.style.display = 'block';
+  }
+  function closeDrawer(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('pwaOverlay');
+    if (sb) sb.classList.remove('open');
+    if (ov) ov.style.display = 'none';
   }
 
-  /* الفيديو بعرض كامل */
-  body.pwa-mobile video,
-  body.pwa-mobile iframe {
-    max-width: 100%;
-    height: auto;
-    border-radius: 12px;
+  // Run on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', build);
+  } else {
+    build();
   }
-}
+  setTimeout(build, 500);
+  setTimeout(build, 1500);
 
-/* شاشات صغيرة جدًا */
-@media (max-width: 480px) {
-  body.pwa-mobile { font-size: 13px; }
-}
-
-/* عند التثبيت كتطبيق */
-@media (display-mode: standalone) {
-  body { padding-top: env(safe-area-inset-top); }
-}
+  // Service Worker register
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('/service-worker.js').catch(function(){});
+    });
+  }
+})();
