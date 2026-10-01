@@ -2,24 +2,126 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>مشكاة المعرفة - منصة تعليمية</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<!-- PWA & Mobile - إضافة آمنة -->
-<meta name="theme-color" content="#6c5ce7">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="مشكاة">
-<link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icon-192.png">
-<link rel="stylesheet" href="/pwa2.css">
-<script src="/pwa2.js" defer></script>
+<style>
+@media (max-width: 900px) {
+  #pwaHeader { display: flex !important; position: fixed !important; top: 0; left: 0; right: 0; height: 56px; background: linear-gradient(180deg, #0f0c29, #1a1a2e); border-bottom: 1px solid rgba(168,85,247,.3); z-index: 9000; align-items: center; justify-content: space-between; padding: 0 14px; box-shadow: 0 4px 20px rgba(0,0,0,.6); }
+  #pwaNav { display: flex !important; position: fixed !important; bottom: 0; left: 0; right: 0; height: 64px; background: #0f0c29; border-top: 1px solid rgba(168,85,247,.3); z-index: 9000; justify-content: space-around; align-items: center; }
+  body.pwa-mobile { overflow-x: hidden; }
+  body.pwa-mobile .sidebar { position: fixed !important; top: 0; right: -300px; left: auto; width: 280px; height: 100vh; z-index: 9999; transition: right .3s; background: #0f0c29; overflow-y: auto; padding: 16px; box-shadow: -10px 0 30px rgba(0,0,0,.7); }
+  body.pwa-mobile .sidebar.open { right: 0 !important; }
+  body.pwa-mobile .main { margin: 0 !important; padding: 70px 12px 80px 12px !important; width: 100% !important; box-sizing: border-box; }
+  body.pwa-mobile .grid, body.pwa-mobile .grid-2, body.pwa-mobile .grid-3, body.pwa-mobile .grid-4 { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  body.pwa-mobile .card { padding: 16px 10px !important; border-radius: 16px !important; background: linear-gradient(145deg, #1e1b4b, #1a1a2e) !important; border: 1px solid rgba(168,85,247,.25) !important; box-shadow: 0 6px 20px rgba(0,0,0,.4) !important; text-align: center !important; margin: 0 !important; color: #fff !important; }
+  body.pwa-mobile .stat-value { font-size: 36px !important; font-weight: 900 !important; color: #ec4899 !important; line-height: 1 !important; margin-bottom: 8px !important; }
+  body.pwa-mobile .stat-label { font-size: 12px !important; color: #fff !important; font-weight: 700 !important; }
+  body.pwa-mobile .page-title { font-size: 22px !important; color: #a855f7 !important; font-weight: 900 !important; }
+  body.pwa-mobile .bar { height: 8px !important; background: rgba(0,0,0,.4) !important; border-radius: 8px !important; overflow: hidden !important; }
+  body.pwa-mobile .bar > div { height: 100% !important; background: linear-gradient(90deg, #a855f7, #ec4899) !important; }
+}
+#pwaHeader, #pwaNav { display: none; }
+.ph-btn { width: 40px; height: 40px; border-radius: 10px; background: rgba(168,85,247,.15); border: 1px solid rgba(168,85,247,.35); color: #fff; font-size: 18px; cursor: pointer; }
+.ph-brand-ar { font-size: 15px; font-weight: 900; color: #a855f7; display: block; text-align: center; }
+.ph-brand-en { font-size: 8px; color: rgba(255,255,255,.5); letter-spacing: 2px; display: block; text-align: center; }
+.pn-item { flex: 1; background: transparent; border: none; color: rgba(255,255,255,.5); display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: inherit; padding: 4px; gap: 2px; cursor: pointer; }
+.pn-item .pn-ico { font-size: 20px; }
+.pn-item .pn-lbl { font-size: 10px; font-weight: 700; }
+.pn-item.active { color: #a855f7; }
+#pwaOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 9500; }
+</style>
 </head>
 <body>
 <div id="app"></div>
 <div id="toast" class="toast"></div>
 <script src="app.js"></script>
+<script>
+(function(){
+  // 1) Unregister any old service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ try { r.unregister(); } catch(e){} });
+    });
+  }
+  
+  function isMobile(){ return window.innerWidth <= 900; }
+  
+  function build(){
+    if (!isMobile()) { document.body.classList.remove('pwa-mobile'); return; }
+    document.body.classList.add('pwa-mobile');
+    
+    if (!document.getElementById('pwaHeader')) {
+      document.body.insertAdjacentHTML('afterbegin',
+        '<header id="pwaHeader">' +
+          '<button class="ph-btn" id="phMenu">☰</button>' +
+          '<div><span class="ph-brand-ar">مشكاة المعرفة</span>' +
+          '<span class="ph-brand-en">MISHKAT AL-MAARIFA</span></div>' +
+          '<button class="ph-btn" id="phUser">🎓</button>' +
+        '</header>');
+    }
+    if (!document.getElementById('pwaOverlay')) {
+      document.body.insertAdjacentHTML('beforeend', '<div id="pwaOverlay"></div>');
+    }
+    if (!document.getElementById('pwaNav')) {
+      var tabs = [
+        {id:'dashboard', ico:'🏠', label:'الرئيسية'},
+        {id:'lessons',   ico:'📚', label:'الدروس'},
+        {id:'quizzes',   ico:'🧠', label:'الاختبارات'},
+        {id:'files',     ico:'📁', label:'الملفات'},
+        {id:'more',      ico:'☰', label:'المزيد'}
+      ];
+      var html = '<nav id="pwaNav">';
+      tabs.forEach(function(t){
+        html += '<button class="pn-item" data-nav="'+t.id+'"><span class="pn-ico">'+t.ico+'</span><span class="pn-lbl">'+t.label+'</span></button>';
+      });
+      html += '</nav>';
+      document.body.insertAdjacentHTML('beforeend', html);
+    }
+    
+    var mb = document.getElementById('phMenu');
+    if (mb) mb.onclick = openDrawer;
+    
+    document.querySelectorAll('.pn-item').forEach(function(b){
+      b.onclick = function(){
+        var id = b.dataset.nav;
+        if (id === 'more') { openDrawer(); return; }
+        var target = document.querySelector('.sidebar .nav-item[data-nav="'+id+'"]');
+        if (target) target.click();
+        document.querySelectorAll('.pn-item').forEach(function(x){ x.classList.toggle('active', x.dataset.nav === id); });
+      };
+    });
+    var ov = document.getElementById('pwaOverlay');
+    if (ov) ov.onclick = closeDrawer;
+  }
+  
+  function openDrawer(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('pwaOverlay');
+    if (sb) sb.classList.add('open');
+    if (ov) ov.style.display = 'block';
+  }
+  function closeDrawer(){
+    var sb = document.querySelector('.sidebar');
+    var ov = document.getElementById('pwaOverlay');
+    if (sb) sb.classList.remove('open');
+    if (ov) ov.style.display = 'none';
+  }
+  
+  document.addEventListener('click', function(e){
+    var item = e.target.closest && e.target.closest('.sidebar .nav-item');
+    if (!item || !isMobile()) return;
+    setTimeout(closeDrawer, 80);
+  });
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', build);
+  } else { build(); }
+  setTimeout(build, 500);
+  setTimeout(build, 1500);
+  window.addEventListener('resize', function(){ setTimeout(build, 100); });
+})();
+</script>
 </body>
 </html>
