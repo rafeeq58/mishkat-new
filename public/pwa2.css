@@ -1,0 +1,281 @@
+/* ============================================================
+   PWA2 - تصميم عصري كامل - مشكاة المعرفة
+   ملف إصلاح - لا يحذف pwa.css الأصلي
+   ============================================================ */
+
+/* ============ HEADER ============ */
+#pwaHeader {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: calc(60px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 14px 0 14px;
+  background: linear-gradient(180deg, rgba(15,12,41,0.98) 0%, rgba(26,26,46,0.95) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(168,85,247,0.2);
+  z-index: 900;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+}
+.ph-btn {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  background: rgba(168,85,247,0.12);
+  border: 1px solid rgba(168,85,247,0.28);
+  color: #fff;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ph-btn:active { transform: scale(0.9); }
+.ph-brand { text-align: center; flex: 1; }
+.ph-brand-ar {
+  display: block;
+  font-size: 16px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.1;
+}
+.ph-brand-en {
+  display: block;
+  font-size: 8px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 2px;
+  margin-top: 2px;
+}
+
+/* ============ BOTTOM NAV ============ */
+#pwaNav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(66px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(15,12,41,0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(168,85,247,0.22);
+  z-index: 900;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -6px 30px rgba(0,0,0,0.55);
+}
+.pn-item {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.22s;
+  padding: 4px 0;
+  position: relative;
+}
+.pn-item .pn-ico {
+  font-size: 20px;
+  transition: transform 0.22s;
+  line-height: 1;
+}
+.pn-item .pn-lbl {
+  font-size: 10px;
+  font-weight: 700;
+}
+.pn-item.active { color: #a855f7; }
+.pn-item.active .pn-ico {
+  transform: translateY(-3px) scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(168,85,247,0.9));
+}
+.pn-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 30px; height: 3px;
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 0 12px rgba(168,85,247,0.8);
+}
+
+/* ============ OVERLAY ============ */
+#pwaOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 950;
+}
+
+/* ============ MOBILE ============ */
+@media (max-width: 900px) {
+  body.pwa-mobile #pwaHeader { display: flex; }
+  body.pwa-mobile #pwaNav { display: flex; }
+  body.pwa-mobile .layout { display: block !important; }
+
+  body.pwa-mobile .sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    right: -300px !important;
+    left: auto !important;
+    width: 280px !important;
+    max-width: 82vw !important;
+    height: 100vh !important;
+    z-index: 999 !important;
+    padding: calc(14px + env(safe-area-inset-top)) 12px 14px !important;
+    background: linear-gradient(180deg, #0f0c29 0%, #1a1a2e 100%) !important;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.75) !important;
+    transition: right 0.32s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+  body.pwa-mobile .sidebar.open { right: 0 !important; }
+
+  body.pwa-mobile .brand-modern {
+    padding: 10px 6px 18px !important;
+    border-bottom: 1px solid rgba(168,85,247,0.2);
+    margin-bottom: 12px;
+  }
+  body.pwa-mobile .nav-item {
+    padding: 12px 12px !important;
+    border-radius: 12px !important;
+    margin-bottom: 4px !important;
+    font-size: 14px !important;
+    gap: 12px !important;
+  }
+  body.pwa-mobile .nav-item.active {
+    background: linear-gradient(135deg, rgba(99,102,241,0.35) 0%, rgba(236,72,153,0.25) 100%) !important;
+    box-shadow: 0 4px 20px rgba(168,85,247,0.3);
+  }
+  body.pwa-mobile .nav-item .ico { font-size: 18px !important; }
+
+  body.pwa-mobile .main {
+    margin: 0 !important;
+    padding: calc(76px + env(safe-area-inset-top)) 14px calc(88px + env(safe-area-inset-bottom)) 14px !important;
+    width: 100% !important;
+    min-height: 100vh !important;
+    box-sizing: border-box !important;
+  }
+
+  body.pwa-mobile .page-head {
+    padding: 0 0 16px 0 !important;
+    margin-bottom: 4px !important;
+  }
+  body.pwa-mobile .page-title {
+    font-size: 22px !important;
+    font-weight: 900 !important;
+    background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.2;
+  }
+  body.pwa-mobile .page-sub {
+    font-size: 12px !important;
+    color: rgba(255,255,255,0.5) !important;
+    margin-top: 3px;
+  }
+
+  body.pwa-mobile .grid {
+    display: grid !important;
+    gap: 12px !important;
+  }
+  body.pwa-mobile .grid.grid-2,
+  body.pwa-mobile .grid.grid-3,
+  body.pwa-mobile .grid.grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  body.pwa-mobile .card {
+    position: relative;
+    padding: 20px 12px !important;
+    border-radius: 20px !important;
+    background: linear-gradient(145deg, rgba(30,27,75,0.75) 0%, rgba(26,26,46,0.95) 100%) !important;
+    border: 1px solid rgba(168,85,247,0.18) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    text-align: center !important;
+    overflow: hidden;
+    margin-bottom: 0 !important;
+  }
+  body.pwa-mobile .card::before {
+    content: '';
+    position: absolute;
+    top: -60%; left: -60%;
+    width: 220%; height: 220%;
+    background: radial-gradient(circle at 30% 20%, rgba(168,85,247,0.18) 0%, transparent 45%);
+    pointer-events: none;
+  }
+
+  body.pwa-mobile .stat-value {
+    font-size: 42px !important;
+    font-weight: 900 !important;
+    background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1 !important;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 2px 10px rgba(168,85,247,0.5));
+  }
+  body.pwa-mobile .stat-label {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: rgba(255,255,255,0.85) !important;
+  }
+
+  body.pwa-mobile .bar {
+    height: 8px !important;
+    background: rgba(0,0,0,0.35) !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+    margin-top: 14px;
+  }
+  body.pwa-mobile .bar > div {
+    height: 100% !important;
+    background: linear-gradient(90deg, #a855f7 0%, #ec4899 100%) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 0 12px rgba(236,72,153,0.6);
+  }
+
+  body.pwa-mobile .main > .card:not(.grid .card) {
+    margin-top: 14px !important;
+    text-align: right !important;
+    padding: 18px 16px !important;
+  }
+  body.pwa-mobile .main > .card:not(.grid .card) .stat-value {
+    font-size: 36px !important;
+    text-align: right;
+  }
+
+  body.pwa-mobile table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    border-radius: 12px;
+  }
+  body.pwa-mobile th, body.pwa-mobile td { padding: 8px !important; }
+
+  body.pwa-mobile input,
+  body.pwa-mobile select,
+  body.pwa-mobile textarea { font-size: 16px !important; }
+
+  body.pwa-mobile button, body.pwa-mobile .btn {
+    min-height: 42px;
+    border-radius: 12px;
+  }
+}
