@@ -5,16 +5,79 @@ const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const B2 = require('backblaze-b2');
+
+// ============ B2 SETUP ============
+const b2 = new B2({
+  applicationKeyId: process.env.B2_KEY_ID,
+  applicationKey: process.env.B2_APP_KEY
+});
+let b2Authorized = false;
+
+async function ensureB2Auth() {
+  if (!b2Authorized) {
+    await b2.authorize();
+    b2Authorized = true;
+  }
+}
+
+async function uploadToB2(buffer, fileName, mimeType) {
+  try {
+    await ensureB2Auth();
+    const bucketId = process.env.B2_BUCKET_ID;
+    const uploadUrlResp = await b2.getUploadUrl({ bucketId });
+    const response = await b2.uploadFile({
+      uploadUrl: uploadUrlResp.data.uploadUrl,
+      uploadAuthToken: uploadUrlResp.data.authorizationToken,
+      filename: fileName,
+      data: buffer,
+      mime: mimeType || 'application/octet-stream'
+    });
+    return { fileId: response.data.fileId, fileName: response.data.fileName };
+  } catch (err) {
+    b2Authorized = false;
+    throw err;
+  }
+}
+
+async function deleteFromB2ByName(fileName) {
+  try {
+    await ensureB2Auth();
+    const list = await b2.listFileNames({
+      bucketId: process.env.B2_BUCKET_ID,
+      startFileName: fileName,
+      maxFileCount: 1
+    });
+    const file = list.data.files.find(function(f) { return f.fileName === fileName; });
+    if (file) {
+      await b2.deleteFileVersion({ fileId: file.fileId, fileName: file.fileName });
+    }
+  } catch (err) {
+    b2Authorized = false;
+    console.warn('B2 delete warning:', err.message);
+  }
+}
+
+async function uploadLocalToB2(localPath, originalName, mimeType) {
+  const buffer = fs.readFileSync(localPath);
+  const ext = path.extname(originalName);
+  const b2Name = Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
+  const result = await uploadToB2(buffer, b2Name, mimeType);
+  try { fs.unlinkSync(localPath); } catch (e) {}
+  return result.fileName;
+}
+// ============ END B2 ============
+
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.port || 3000;
 const JWT_SECRET = 'mishkat-secret-key-2026-final';
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 app.use('/mobile', express.static('public/mobile'));
-app.use('/uploads', express.static('uploads'));
+
 
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 if (!fs.existsSync('data')) fs.mkdirSync('data');
@@ -235,43 +298,82 @@ app.get('/api/lessons/:id', auth, function(req, res) {
   }
   res.json(l);
 });
-app.post('/api/lessons', auth, hasPerm('lessons_add'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'video_file', maxCount: 1 }]), function(req, res) {
-  var vf = req.files && req.files.video_file ? req.files.video_file[0] : null;
-  var af = req.files && req.files.file ? req.files.file[0] : null;
-  var l = {
-    id: nextId('lessons'),
-    title: req.body.title,
-    description: req.body.description || '',
-    content: req.body.content || '',
-    video_url: vf ? '/uploads/' + vf.filename : (req.body.video_url || ''),
-    file_path: af ? '/uploads/' + af.filename : null,
-    subject_id: req.body.subject_id ? +req.body.subject_id : null,
-    order_index: +req.body.order_index || 0
-  };
-  db.lessons.push(l);
-  var gid = null;
-  if (l.subject_id) {
-    var sub = db.subjects.find(function(x) { return x.id === l.subject_id; });
-    if (sub) gid = sub.grade_id;
+app.post('/api/lessons', auth, hasPerm('lessons_add'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'video_file', maxCount: 1 }]), async function(req, res) {
+  try {
+    var vf = req.files && req.files.video_file ? req.files.video_file[0] : null;
+    var af = req.files && req.files.file ? req.files.file[0] : null;
+    var videoUrl = req.body.video_url || '';
+    var filePath = null;
+
+    if (vf) {
+      var vName = await uploadLocalToB2(vf.path, vf.originalname, vf.mimetype);
+      videoUrl = '/b2/' + vName;
+    }
+    if (af) {
+      var fName = await uploadLocalToB2(af.path, af.originalname, af.mimetype);
+      filePath = '/b2/' + fName;
+    }
+
+    var l = {
+      id: nextId('lessons'),
+      title: req.body.title,
+      description: req.body.description || '',
+      content: req.body.content || '',
+      video_url: videoUrl,
+      file_path: filePath,
+      subject_id: req.body.subject_id ? +req.body.subject_id : null,
+      order_index: +req.body.order_index || 0
+    };
+    db.lessons.push(l);
+    var gid = null;
+    if (l.subject_id) {
+      var sub = db.subjects.find(function(x) { return x.id === l.subject_id; });
+      if (sub) gid = sub.grade_id;
+    }
+    try { notifyStudents('lesson_new', 'درس جديد', 'تم إضافة درس: ' + l.title, 'lessons', gid); } catch (e) {}
+    saveDB();
+    res.json(l);
+  } catch (err) {
+    console.error('Lesson upload error:', err);
+    res.status(500).json({ error: 'فشل الرفع: ' + err.message });
   }
-  try { notifyStudents('lesson_new', 'درس جديد', 'تم إضافة درس: ' + l.title, 'lessons', gid); } catch (e) {}
-  saveDB(); res.json(l);
 });
-app.put('/api/lessons/:id', auth, hasPerm('lessons_add'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'video_file', maxCount: 1 }]), function(req, res) {
-  var l = db.lessons.find(function(x) { return x.id === +req.params.id; });
-  if (!l) return res.status(404).json({ error: 'غير موجود' });
-  var vf = req.files && req.files.video_file ? req.files.video_file[0] : null;
-  var af = req.files && req.files.file ? req.files.file[0] : null;
-  l.title = req.body.title;
-  l.description = req.body.description || '';
-  l.content = req.body.content || '';
-  if (vf) l.video_url = '/uploads/' + vf.filename;
-  else if (req.body.video_url !== undefined) l.video_url = req.body.video_url;
-  if (af) l.file_path = '/uploads/' + af.filename;
-  if (req.body.subject_id) l.subject_id = +req.body.subject_id;
-  l.order_index = +req.body.order_index || 0;
-  saveDB(); res.json(l);
+
+
+  
+app.put('/api/lessons/:id', auth, hasPerm('lessons_add'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'video_file', maxCount: 1 }]), async function(req, res) {
+  try {
+    var l = db.lessons.find(function(x) { return x.id === +req.params.id; });
+    if (!l) return res.status(404).json({ error: 'غير موجود' });
+    var vf = req.files && req.files.video_file ? req.files.video_file[0] : null;
+    var af = req.files && req.files.file ? req.files.file[0] : null;
+
+    l.title = req.body.title;
+    l.description = req.body.description || '';
+    l.content = req.body.content || '';
+
+    if (vf) {
+      var vName = await uploadLocalToB2(vf.path, vf.originalname, vf.mimetype);
+      l.video_url = '/b2/' + vName;
+    } else if (req.body.video_url !== undefined) {
+      l.video_url = req.body.video_url;
+    }
+
+    if (af) {
+      var fName = await uploadLocalToB2(af.path, af.originalname, af.mimetype);
+      l.file_path = '/b2/' + fName;
+    }
+
+    if (req.body.subject_id) l.subject_id = +req.body.subject_id;
+    l.order_index = +req.body.order_index || 0;
+    saveDB();
+    res.json(l);
+  } catch (err) {
+    console.error('Lesson update error:', err);
+    res.status(500).json({ error: 'فشل التحديث: ' + err.message });
+  }
 });
+
 app.delete('/api/lessons/:id', auth, hasPerm('lessons_add'), function(req, res) {
   var id = +req.params.id;
   db.lessons = db.lessons.filter(function(l) { return l.id !== id; });
@@ -309,33 +411,68 @@ app.get('/api/files', auth, function(req, res) {
     return Object.assign({}, f, { grade_name: g ? g.name : null, subject_name: sub ? sub.name : null, my_rating: myRate ? myRate.stars : 0 });
   }));
 });
-app.post('/api/files', auth, hasPerm('files_add'), upload.single('pdf_file'), function(req, res) {
-  if (!req.file) return res.status(400).json({ error: 'الملف مطلوب' });
-  var isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().slice(-4) === '.pdf';
-  if (!isPdf) { try { fs.unlinkSync(req.file.path); } catch (e) {} return res.status(400).json({ error: 'PDF فقط' }); }
-  var f = { id: nextId('files'), title: req.body.title || 'ملف', notes: req.body.notes || '', file_path: '/uploads/' + req.file.filename, original_name: req.file.originalname, grade_id: req.body.grade_id ? +req.body.grade_id : null, subject_id: req.body.subject_id ? +req.body.subject_id : null, created_at: new Date().toISOString() };
-  db.files.push(f); saveDB(); res.json(f);
-});
-app.put('/api/files/:id', auth, hasPerm('files_add'), upload.single('pdf_file'), function(req, res) {
-  var f = db.files.find(function(x) { return x.id === +req.params.id; });
-  if (!f) return res.status(404).json({ error: 'غير موجود' });
-  if (req.body.title !== undefined) f.title = req.body.title;
-  if (req.body.notes !== undefined) f.notes = req.body.notes;
-  if (req.body.grade_id !== undefined) f.grade_id = req.body.grade_id ? +req.body.grade_id : null;
-  if (req.body.subject_id !== undefined) f.subject_id = req.body.subject_id ? +req.body.subject_id : null;
-  if (req.file) {
-    try { fs.unlinkSync(path.join(__dirname, f.file_path.replace(/^\//, ''))); } catch (e) {}
-    f.file_path = '/uploads/' + req.file.filename;
+app.post('/api/files', auth, hasPerm('files_add'), upload.single('pdf_file'), async function(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'الملف مطلوب' });
+    var isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().slice(-4) === '.pdf';
+    if (!isPdf) { try { fs.unlinkSync(req.file.path); } catch (e) {} return res.status(400).json({ error: 'PDF فقط' }); }
+
+    var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+
+    var f = {
+      id: nextId('files'),
+      title: req.body.title || 'ملف',
+      notes: req.body.notes || '',
+      file_path: '/b2/' + b2Name,
+      original_name: req.file.originalname,
+      grade_id: req.body.grade_id ? +req.body.grade_id : null,
+      subject_id: req.body.subject_id ? +req.body.subject_id : null,
+      created_at: new Date().toISOString()
+    };
+    db.files.push(f); saveDB();
+    res.json(f);
+  } catch (err) {
+    console.error('File upload error:', err);
+    res.status(500).json({ error: 'فشل الرفع: ' + err.message });
   }
-  saveDB(); res.json(f);
 });
-app.delete('/api/files/:id', auth, hasPerm('files_add'), function(req, res) {
+
+app.put('/api/files/:id', auth, hasPerm('files_add'), upload.single('pdf_file'), async function(req, res) {
+  try {
+    var f = db.files.find(function(x) { return x.id === +req.params.id; });
+    if (!f) return res.status(404).json({ error: 'غير موجود' });
+
+    if (req.body.title !== undefined) f.title = req.body.title;
+    if (req.body.notes !== undefined) f.notes = req.body.notes;
+    if (req.body.grade_id !== undefined) f.grade_id = req.body.grade_id ? +req.body.grade_id : null;
+    if (req.body.subject_id !== undefined) f.subject_id = req.body.subject_id ? +req.body.subject_id : null;
+
+    if (req.file) {
+      if (f.file_path && f.file_path.indexOf('/b2/') === 0) {
+        var oldName = f.file_path.replace('/b2/', '');
+        await deleteFromB2ByName(oldName);
+      }
+      var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+      f.file_path = '/b2/' + b2Name;
+    }
+    saveDB(); res.json(f);
+  } catch (err) {
+    console.error('File update error:', err);
+    res.status(500).json({ error: 'فشل التحديث: ' + err.message });
+  }
+});
+
+
+  app.delete('/api/files/:id', auth, hasPerm('files_add'), async function(req, res) {
   var f = db.files.find(function(x) { return x.id === +req.params.id; });
-  if (f && f.file_path) { try { fs.unlinkSync(path.join(__dirname, f.file_path.replace(/^\//, ''))); } catch (e) {} }
+  if (f && f.file_path && f.file_path.indexOf('/b2/') === 0) {
+    try { await deleteFromB2ByName(f.file_path.replace('/b2/', '')); } catch (e) {}
+  }
   db.files = db.files.filter(function(x) { return x.id !== +req.params.id; });
   db.ratings = db.ratings.filter(function(r) { return r.file_id !== +req.params.id; });
   saveDB(); res.json({ ok: 1 });
 });
+
 app.post('/api/files/:id/rate', auth, function(req, res) {
   if (req.user.role === 'admin') return res.status(403).json({ error: 'الطلاب فقط' });
   var stars = +req.body.stars;
@@ -455,32 +592,43 @@ app.get('/api/admin/messages/:studentId', auth, adminOnly, function(req, res) {
   var u = db.users.find(function(x) { return x.id === sid; });
   res.json({ student: u ? { id: u.id, name: u.name, email: u.email } : null, messages: msgs });
 });
-app.post('/api/admin/messages', auth, adminOnly, upload.single('msg_file'), function(req, res) {
-  var toId = +req.body.student_id;
-  if (!toId) return res.status(400).json({ error: 'اختر الطالب' });
-  var u = db.users.find(function(x) { return x.id === toId && x.role === 'student'; });
-  if (!u) return res.status(404).json({ error: 'الطالب غير موجود' });
-  var type = req.body.type || 'text';
-  var content = req.body.content || '';
-  var file_path = null, file_name = '';
-  if (req.file) {
-    if (type === 'pdf' && req.file.mimetype !== 'application/pdf' && req.file.originalname.toLowerCase().slice(-4) !== '.pdf') {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
-      return res.status(400).json({ error: 'PDF فقط' });
+app.post('/api/admin/messages', auth, adminOnly, upload.single('msg_file'), async function(req, res) {
+  try {
+    var toId = +req.body.student_id;
+    if (!toId) return res.status(400).json({ error: 'اختر الطالب' });
+    var u = db.users.find(function(x) { return x.id === toId && x.role === 'student'; });
+    if (!u) return res.status(404).json({ error: 'الطالب غير موجود' });
+    var type = req.body.type || 'text';
+    var content = req.body.content || '';
+    var file_path = null, file_name = '';
+    if (req.file) {
+      if (type === 'pdf' && req.file.mimetype !== 'application/pdf' && req.file.originalname.toLowerCase().slice(-4) !== '.pdf') {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+        return res.status(400).json({ error: 'PDF فقط' });
+      }
+      if (type === 'video' && (req.file.mimetype || '').indexOf('video') !== 0) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+        return res.status(400).json({ error: 'فيديو فقط' });
+      }
+      var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+      file_path = '/b2/' + b2Name;
+      file_name = req.file.originalname;
     }
-    if (type === 'video' && (req.file.mimetype || '').indexOf('video') !== 0) {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
-      return res.status(400).json({ error: 'فيديو فقط' });
-    }
-    file_path = '/uploads/' + req.file.filename;
-    file_name = req.file.originalname;
+    var msg = { id: nextId('messages'), to_student_id: toId, from_admin: req.user.name || 'الإدارة', type: type, content: content, file_path: file_path, file_name: file_name, created_at: new Date().toISOString(), read: false };
+    db.messages.push(msg); saveDB();
+    res.json(msg);
+  } catch (err) {
+    console.error('Message upload error:', err);
+    res.status(500).json({ error: 'فشل الإرسال: ' + err.message });
   }
-  var msg = { id: nextId('messages'), to_student_id: toId, from_admin: req.user.name || 'الإدارة', type: type, content: content, file_path: file_path, file_name: file_name, created_at: new Date().toISOString(), read: false };
-  db.messages.push(msg); saveDB(); res.json(msg);
 });
-app.delete('/api/admin/messages/:id', auth, adminOnly, function(req, res) {
+
+
+app.delete('/api/admin/messages/:id', auth, adminOnly, async function(req, res) {
   var m = db.messages.find(function(x) { return x.id === +req.params.id; });
-  if (m && m.file_path) { try { fs.unlinkSync(path.join(__dirname, m.file_path.replace(/^\//, ''))); } catch (e) {} }
+  if (m && m.file_path && m.file_path.indexOf('/b2/') === 0) {
+    try { await deleteFromB2ByName(m.file_path.replace('/b2/', '')); } catch (e) {}
+  }
   db.messages = db.messages.filter(function(x) { return x.id !== +req.params.id; });
   saveDB(); res.json({ ok: 1 });
 });
@@ -728,44 +876,52 @@ app.post('/api/favorites/:lessonId', auth, function(req, res) {
 });
 
 // SPA fallback
-app.post('/api/admin/programs', auth, adminOnly, upload.single('program_file'), function(req, res) {
-  var target = req.body.target_type;
-  var content = req.body.content || '';
-  var file_path = req.file ? '/uploads/' + req.file.filename : null;
-  if (target === 'student') {
-    var sid = +req.body.student_id;
-    if (!sid) return res.status(400).json({ error: 'اختر الطالب' });
-    var u = db.users.find(function(x) { return x.id === sid && x.role === 'student'; });
-    if (!u) return res.status(404).json({ error: 'غير موجود' });
-    u.program = content;
-    if (file_path) u.program_file = file_path;
-    db.notifications.push({ id: nextId('notifications'), user_id: u.id, type: 'program_update', title: 'تحديث برنامجك', message: 'تم تحديث برنامجك الدراسي', link: 'myprogram', created_at: new Date().toISOString(), read_by: [] });
-    saveDB();
-    return res.json({ ok: 1 });
-  }
-  if (target === 'grade') {
-    var gid = +req.body.grade_id;
-    if (!gid) return res.status(400).json({ error: 'اختر الصف' });
-    if (!db.grade_programs) db.grade_programs = [];
-    var ex = db.grade_programs.find(function(g) { return g.grade_id === gid; });
-    if (ex) {
-      ex.content = content;
-      if (file_path) ex.file_path = file_path;
-      ex.updated_at = new Date().toISOString();
-    } else {
-      if (!db.seq.grade_programs) db.seq.grade_programs = 1;
-      db.grade_programs.push({ id: nextId('grade_programs'), grade_id: gid, content: content, file_path: file_path, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+app.post('/api/admin/programs', auth, adminOnly, upload.single('program_file'), async function(req, res) {
+  try {
+    var target = req.body.target_type;
+    var content = req.body.content || '';
+    var file_path = null;
+    if (req.file) {
+      var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+      file_path = '/b2/' + b2Name;
     }
-    var sts = db.users.filter(function(u) { return u.role === 'student' && u.grade_id === gid; });
-    sts.forEach(function(st) {
-      db.notifications.push({ id: nextId('notifications'), user_id: st.id, type: 'program_update', title: 'تحديث برنامج صفك', message: 'تم تحديث البرنامج الدراسي لصفك', link: 'myprogram', created_at: new Date().toISOString(), read_by: [] });
-    });
-    saveDB();
-    return res.json({ ok: 1 });
+    if (target === 'student') {
+      var sid = +req.body.student_id;
+      if (!sid) return res.status(400).json({ error: 'اختر الطالب' });
+      var u = db.users.find(function(x) { return x.id === sid && x.role === 'student'; });
+      if (!u) return res.status(404).json({ error: 'غير موجود' });
+      u.program = content;
+      if (file_path) u.program_file = file_path;
+      db.notifications.push({ id: nextId('notifications'), user_id: u.id, type: 'program_update', title: 'تحديث برنامجك', message: 'تم تحديث برنامجك الدراسي', link: 'myprogram', created_at: new Date().toISOString(), read_by: [] });
+      saveDB();
+      return res.json({ ok: 1 });
+    }
+    if (target === 'grade') {
+      var gid = +req.body.grade_id;
+      if (!gid) return res.status(400).json({ error: 'اختر الصف' });
+      if (!db.grade_programs) db.grade_programs = [];
+      var ex = db.grade_programs.find(function(g) { return g.grade_id === gid; });
+      if (ex) {
+        ex.content = content;
+        if (file_path) ex.file_path = file_path;
+        ex.updated_at = new Date().toISOString();
+      } else {
+        if (!db.seq.grade_programs) db.seq.grade_programs = 1;
+        db.grade_programs.push({ id: nextId('grade_programs'), grade_id: gid, content: content, file_path: file_path, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      }
+      var sts = db.users.filter(function(u) { return u.role === 'student' && u.grade_id === gid; });
+      sts.forEach(function(st) {
+        db.notifications.push({ id: nextId('notifications'), user_id: st.id, type: 'program_update', title: 'تحديث برنامج صفك', message: 'تم تحديث البرنامج الدراسي لصفك', link: 'myprogram', created_at: new Date().toISOString(), read_by: [] });
+      });
+      saveDB();
+      return res.json({ ok: 1 });
+    }
+    res.status(400).json({ error: 'اختر نوع الإرسال' });
+  } catch (err) {
+    console.error('Program upload error:', err);
+    res.status(500).json({ error: 'فشل الرفع: ' + err.message });
   }
-  res.status(400).json({ error: 'اختر نوع الإرسال' });
 });
-
 
 app.get('/api/me/program', auth, function(req, res) {
   var u = db.users.find(function(x) { return x.id === req.user.id; });
@@ -787,6 +943,24 @@ app.delete('/api/admin/activities/clear', auth, adminOnly, function(req, res) {
   res.json({ ok: 1 });
 });
 
+// ===== B2 File Serving =====
+app.get('/b2/*', async function(req, res) {
+  try {
+    const fileName = req.params[0];
+    await ensureB2Auth();
+    const bucketName = process.env.B2_BUCKET_NAME;
+    const auth = await b2.getDownloadAuthorization({
+      bucketId: process.env.B2_BUCKET_ID,
+      fileNamePrefix: fileName,
+      validDurationInSeconds: 604800
+    });
+    const url = 'https://f005.backblazeb2.com/file/' + bucketName + '/' + encodeURIComponent(fileName) + '?Authorization=' + auth.data.authorizationToken;
+    res.redirect(url);
+  } catch (err) {
+    console.error('B2 download error:', err);
+    res.status(500).json({ error: 'فشل تحميل الملف' });
+  }
+});
 app.get('*', function(req, res) { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
 app.listen(PORT, function() { console.log('Server ready: http://localhost:' + PORT); });
