@@ -1005,6 +1005,27 @@ app.get('/b2/*', async function(req, res) {
   }
 });
 
+// ============ DIRECT UPLOAD API ============
+app.post('/api/b2/upload-url', auth, hasPerm('lessons_add'), async function(req, res) {
+  try {
+    await ensureB2Auth();
+    const fileName = req.body.fileName || ('file-' + Date.now());
+    const ext = path.extname(fileName);
+    const b2Name = 'uploads/' + Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
+    const bucketId = process.env.B2_BUCKET_ID;
+    const uploadUrlResp = await b2.getUploadUrl({ bucketId });
+    res.json({
+      uploadUrl: uploadUrlResp.data.uploadUrl,
+      authToken: uploadUrlResp.data.authorizationToken,
+      b2Name: b2Name,
+      publicPath: '/b2/' + b2Name
+    });
+  } catch (err) {
+    console.error('B2 upload-url error:', err);
+    res.status(500).json({ error: 'فشل تجهيز الرفع: ' + err.message });
+  }
+});
+
 // ============ SPA FALLBACK ============
 app.get('*', function(req, res) { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 
