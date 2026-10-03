@@ -5,9 +5,9 @@ const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const B2 = require('backblaze-b2');
 
-// ============ B2 SETUP ============
+// ============ Backblaze B2 via backblaze-b2 (للDB و delete) ============
+const B2 = require('backblaze-b2');
 const b2 = new B2({
   applicationKeyId: process.env.B2_KEY_ID,
   applicationKey: process.env.B2_APP_KEY
@@ -21,7 +21,24 @@ async function ensureB2Auth() {
   }
 }
 
-async function uploadToB2(buffer, fileName, mimeType) {
+// ============ AWS SDK S3 (Presigned URLs للرفع) ============
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+const s3Client = new S3Client({
+  endpoint: 'https://' + (process.env.B2_ENDPOINT || 's3.us-east-005.backblazeb2.com'),
+  region: 'us-east-005',
+  credentials: {
+    accessKeyId: process.env.B2_KEY_ID,
+    secretAccessKey: process.env.B2_APP_KEY
+  },
+  forcePathStyle: true
+});
+
+// ============ دوال مساعدة ============
+
+// رفع Buffer إلى B2 (يستخدم backblaze-b2 - للDB فقط)
+async function uploadBufferToB2(buffer, fileName, mimeType) {
   try {
     await ensureB2Auth();
     const bucketId = process.env.B2_BUCKET_ID;
@@ -33,13 +50,14 @@ async function uploadToB2(buffer, fileName, mimeType) {
       data: buffer,
       mime: mimeType || 'application/octet-stream'
     });
-    return { fileId: response.data.fileId, fileName: response.data.fileName };
+    return response.data.fileName;
   } catch (err) {
     b2Authorized = false;
     throw err;
   }
 }
 
+// حذف ملف من B2
 async function deleteFromB2ByName(fileName) {
   try {
     await ensureB2Auth();
@@ -58,15 +76,7 @@ async function deleteFromB2ByName(fileName) {
   }
 }
 
-async function uploadLocalToB2(localPath, originalName, mimeType) {
-  const buffer = fs.readFileSync(localPath);
-  const ext = path.extname(originalName);
-  const b2Name = Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
-  const result = await uploadToB2(buffer, b2Name, mimeType);
-  try { fs.unlinkSync(localPath); } catch (e) {}
-  return result.fileName;
-}
-
+// تنزيل DB من B2
 async function downloadDBFromB2() {
   try {
     await ensureB2Auth();
@@ -86,6 +96,7 @@ async function downloadDBFromB2() {
   }
 }
 
+// رفع DB إلى B2
 async function uploadDBToB2() {
   try {
     await ensureB2Auth();
@@ -103,8 +114,8 @@ async function uploadDBToB2() {
     console.log('B2 DB upload failed:', e.message);
   }
 }
-// ============ END B2 ============
 
+// ============ إعداد Express ============
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'mishkat-secret-key-2026-final';
@@ -151,6 +162,7 @@ function logActivity(action, target_type, target_name) {
   });
 }
 
+// multer يخزن الملفات محلياً (مؤقتاً) ثم نرفعها إلى B2
 const storage = multer.diskStorage({
   destination: function(_, __, cb) { cb(null, 'uploads/'); },
   filename: function(_, f, cb) { cb(null, Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(f.originalname)); }
@@ -197,20 +209,20 @@ app.use(function(req, res, next) {
   var jwtUser;
   try { jwtUser = jwt.verify(t, JWT_SECRET); } catch(e) { return next(); }
   if (!jwtUser || (jwtUser.role !== 'assistant' && jwtUser.role !== 'admin')) return next();
-  var path = req.path;
-  if (path.indexOf('/api/') !== 0) return next();
+  var p = req.path;
+  if (p.indexOf('/api/') !== 0) return next();
   var actionMap = { POST: 'add', PUT: 'edit', DELETE: 'delete' };
   var action = actionMap[req.method];
   if (!action) return next();
   var targetType = '';
   var targetName = '';
-  if (path.indexOf('/lessons') !== -1) { targetType = 'درس'; targetName = (req.body && req.body.title) || ''; }
-  else if (path.indexOf('/students') !== -1) { targetType = 'طالب'; targetName = (req.body && req.body.name) || ''; }
-  else if (path.indexOf('/files') !== -1) { targetType = 'ملف'; targetName = (req.body && req.body.title) || ''; }
-  else if (path.indexOf('/quizzes') !== -1) { targetType = 'اختبار'; targetName = (req.body && req.body.title) || ''; }
-  else if (path.indexOf('/grades') !== -1) { targetType = 'صف'; targetName = (req.body && req.body.name) || ''; }
-  else if (path.indexOf('/subjects') !== -1) { targetType = 'مادة'; targetName = (req.body && req.body.name) || ''; }
-  else if (path.indexOf('/assistants') !== -1) { targetType = 'مساعد'; targetName = (req.body && req.body.name) || ''; }
+  if (p.indexOf('/lessons') !== -1) { targetType = 'درس'; targetName = (req.body && req.body.title) || ''; }
+  else if (p.indexOf('/students') !== -1) { targetType = 'طالب'; targetName = (req.body && req.body.name) || ''; }
+  else if (p.indexOf('/files') !== -1) { targetType = 'ملف'; targetName = (req.body && req.body.title) || ''; }
+  else if (p.indexOf('/quizzes') !== -1) { targetType = 'اختبار'; targetName = (req.body && req.body.title) || ''; }
+  else if (p.indexOf('/grades') !== -1) { targetType = 'صف'; targetName = (req.body && req.body.name) || ''; }
+  else if (p.indexOf('/subjects') !== -1) { targetType = 'مادة'; targetName = (req.body && req.body.name) || ''; }
+  else if (p.indexOf('/assistants') !== -1) { targetType = 'مساعد'; targetName = (req.body && req.body.name) || ''; }
   else return next();
   res.on('finish', function() {
     if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -236,6 +248,32 @@ app.get('/api/auth/me', auth, function(req, res) {
   var u = db.users.find(function(x) { return x.id === req.user.id; });
   if (!u) return res.status(404).json({ error: 'غير موجود' });
   res.json({ id: u.id, name: u.name, email: u.email, role: u.role, permissions: u.permissions || [] });
+});
+
+// ============ B2 PRESIGNED UPLOAD ============
+app.post('/api/b2/upload-url', auth, hasPerm('lessons_add'), async function(req, res) {
+  try {
+    const fileName = req.body.fileName || ('file-' + Date.now());
+    const ext = path.extname(fileName);
+    const b2Name = 'uploads/' + Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
+    const bucketName = process.env.B2_BUCKET_NAME;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: b2Name
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+
+    res.json({
+      uploadUrl: uploadUrl,
+      b2Name: b2Name,
+      publicPath: '/b2/' + b2Name
+    });
+  } catch (err) {
+    console.error('B2 upload-url error:', err);
+    res.status(500).json({ error: 'فشل تجهيز الرفع: ' + err.message });
+  }
 });
 
 // ============ GRADES ============
@@ -336,6 +374,56 @@ app.get('/api/lessons/:id', auth, function(req, res) {
   res.json(l);
 });
 
+// ✅ المسار الجديد - يستقبل JSON بدلاً من FormData (من الـ interceptor)
+app.post('/api/lessons/json', auth, hasPerm('lessons_add'), function(req, res) {
+  try {
+    var b = req.body;
+    var l = {
+      id: nextId('lessons'),
+      title: b.title,
+      description: b.description || '',
+      content: b.content || '',
+      video_url: b.video_url || '',
+      file_path: b.file_path || null,
+      subject_id: b.subject_id ? +b.subject_id : null,
+      order_index: +b.order_index || 0
+    };
+    db.lessons.push(l);
+    var gid = null;
+    if (l.subject_id) {
+      var sub = db.subjects.find(function(x) { return x.id === l.subject_id; });
+      if (sub) gid = sub.grade_id;
+    }
+    try { notifyStudents('lesson_new', 'درس جديد', 'تم إضافة درس: ' + l.title, 'lessons', gid); } catch (e) {}
+    saveDB();
+    res.json(l);
+  } catch (err) {
+    console.error('Lesson JSON create error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/lessons/:id/json', auth, hasPerm('lessons_add'), function(req, res) {
+  try {
+    var l = db.lessons.find(function(x) { return x.id === +req.params.id; });
+    if (!l) return res.status(404).json({ error: 'غير موجود' });
+    var b = req.body;
+    if (b.title !== undefined) l.title = b.title;
+    if (b.description !== undefined) l.description = b.description;
+    if (b.content !== undefined) l.content = b.content;
+    if (b.video_url !== undefined) l.video_url = b.video_url;
+    if (b.file_path !== undefined) l.file_path = b.file_path;
+    if (b.subject_id !== undefined) l.subject_id = b.subject_id ? +b.subject_id : null;
+    if (b.order_index !== undefined) l.order_index = +b.order_index || 0;
+    saveDB();
+    res.json(l);
+  } catch (err) {
+    console.error('Lesson JSON update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// المسار القديم (يبقى للتوافق)
 app.post('/api/lessons', auth, hasPerm('lessons_add'), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'video_file', maxCount: 1 }]), async function(req, res) {
   try {
     var vf = req.files && req.files.video_file ? req.files.video_file[0] : null;
@@ -343,12 +431,16 @@ app.post('/api/lessons', auth, hasPerm('lessons_add'), upload.fields([{ name: 'f
     var videoUrl = req.body.video_url || '';
     var filePath = null;
     if (vf) {
-      var vName = await uploadLocalToB2(vf.path, vf.originalname, vf.mimetype);
+      var vBuffer = fs.readFileSync(vf.path);
+      var vName = await uploadBufferToB2(vBuffer, 'uploads/' + Date.now() + path.extname(vf.originalname), vf.mimetype);
+      try { fs.unlinkSync(vf.path); } catch(e){}
       videoUrl = '/b2/' + vName;
     }
     if (af) {
-      var fName = await uploadLocalToB2(af.path, af.originalname, af.mimetype);
-      filePath = '/b2/' + fName;
+      var aBuffer = fs.readFileSync(af.path);
+      var aName = await uploadBufferToB2(aBuffer, 'uploads/' + Date.now() + path.extname(af.originalname), af.mimetype);
+      try { fs.unlinkSync(af.path); } catch(e){}
+      filePath = '/b2/' + aName;
     }
     var l = {
       id: nextId('lessons'),
@@ -384,14 +476,18 @@ app.put('/api/lessons/:id', auth, hasPerm('lessons_add'), upload.fields([{ name:
     l.description = req.body.description || '';
     l.content = req.body.content || '';
     if (vf) {
-      var vName = await uploadLocalToB2(vf.path, vf.originalname, vf.mimetype);
+      var vBuffer = fs.readFileSync(vf.path);
+      var vName = await uploadBufferToB2(vBuffer, 'uploads/' + Date.now() + path.extname(vf.originalname), vf.mimetype);
+      try { fs.unlinkSync(vf.path); } catch(e){}
       l.video_url = '/b2/' + vName;
     } else if (req.body.video_url !== undefined) {
       l.video_url = req.body.video_url;
     }
     if (af) {
-      var fName = await uploadLocalToB2(af.path, af.originalname, af.mimetype);
-      l.file_path = '/b2/' + fName;
+      var aBuffer = fs.readFileSync(af.path);
+      var aName = await uploadBufferToB2(aBuffer, 'uploads/' + Date.now() + path.extname(af.originalname), af.mimetype);
+      try { fs.unlinkSync(af.path); } catch(e){}
+      l.file_path = '/b2/' + aName;
     }
     if (req.body.subject_id) l.subject_id = +req.body.subject_id;
     l.order_index = +req.body.order_index || 0;
@@ -446,35 +542,14 @@ app.post('/api/files', auth, hasPerm('files_add'), upload.single('pdf_file'), as
     if (!req.file) return res.status(400).json({ error: 'الملف مطلوب' });
     var isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().slice(-4) === '.pdf';
     if (!isPdf) { try { fs.unlinkSync(req.file.path); } catch (e) {} return res.status(400).json({ error: 'PDF فقط' }); }
-    var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+    var buf = fs.readFileSync(req.file.path);
+    var b2Name = await uploadBufferToB2(buf, 'files/' + Date.now() + path.extname(req.file.originalname), req.file.mimetype);
+    try { fs.unlinkSync(req.file.path); } catch(e){}
     var f = { id: nextId('files'), title: req.body.title || 'ملف', notes: req.body.notes || '', file_path: '/b2/' + b2Name, original_name: req.file.originalname, grade_id: req.body.grade_id ? +req.body.grade_id : null, subject_id: req.body.subject_id ? +req.body.subject_id : null, created_at: new Date().toISOString() };
     db.files.push(f); saveDB(); res.json(f);
   } catch (err) {
     console.error('File upload error:', err);
     res.status(500).json({ error: 'فشل الرفع: ' + err.message });
-  }
-});
-
-app.put('/api/files/:id', auth, hasPerm('files_add'), upload.single('pdf_file'), async function(req, res) {
-  try {
-    var f = db.files.find(function(x) { return x.id === +req.params.id; });
-    if (!f) return res.status(404).json({ error: 'غير موجود' });
-    if (req.body.title !== undefined) f.title = req.body.title;
-    if (req.body.notes !== undefined) f.notes = req.body.notes;
-    if (req.body.grade_id !== undefined) f.grade_id = req.body.grade_id ? +req.body.grade_id : null;
-    if (req.body.subject_id !== undefined) f.subject_id = req.body.subject_id ? +req.body.subject_id : null;
-    if (req.file) {
-      if (f.file_path && f.file_path.indexOf('/b2/') === 0) {
-        var oldName = f.file_path.replace('/b2/', '');
-        await deleteFromB2ByName(oldName);
-      }
-      var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
-      f.file_path = '/b2/' + b2Name;
-    }
-    saveDB(); res.json(f);
-  } catch (err) {
-    console.error('File update error:', err);
-    res.status(500).json({ error: 'فشل التحديث: ' + err.message });
   }
 });
 
@@ -633,7 +708,9 @@ app.post('/api/admin/messages', auth, adminOnly, upload.single('msg_file'), asyn
         try { fs.unlinkSync(req.file.path); } catch (e) {}
         return res.status(400).json({ error: 'فيديو فقط' });
       }
-      var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+      var buf = fs.readFileSync(req.file.path);
+      var b2Name = await uploadBufferToB2(buf, 'messages/' + Date.now() + path.extname(req.file.originalname), req.file.mimetype);
+      try { fs.unlinkSync(req.file.path); } catch(e){}
       file_path = '/b2/' + b2Name;
       file_name = req.file.originalname;
     }
@@ -744,7 +821,9 @@ app.post('/api/admin/programs', auth, adminOnly, upload.single('program_file'), 
     var content = req.body.content || '';
     var file_path = null;
     if (req.file) {
-      var b2Name = await uploadLocalToB2(req.file.path, req.file.originalname, req.file.mimetype);
+      var buf = fs.readFileSync(req.file.path);
+      var b2Name = await uploadBufferToB2(buf, 'programs/' + Date.now() + path.extname(req.file.originalname), req.file.mimetype);
+      try { fs.unlinkSync(req.file.path); } catch(e){}
       file_path = '/b2/' + b2Name;
     }
     if (target === 'student') {
@@ -1002,27 +1081,6 @@ app.get('/b2/*', async function(req, res) {
   } catch (err) {
     console.error('B2 download error:', err);
     res.status(500).json({ error: 'فشل تحميل الملف' });
-  }
-});
-
-// ============ DIRECT UPLOAD API ============
-app.post('/api/b2/upload-url', auth, hasPerm('lessons_add'), async function(req, res) {
-  try {
-    await ensureB2Auth();
-    const fileName = req.body.fileName || ('file-' + Date.now());
-    const ext = path.extname(fileName);
-    const b2Name = 'uploads/' + Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
-    const bucketId = process.env.B2_BUCKET_ID;
-    const uploadUrlResp = await b2.getUploadUrl({ bucketId });
-    res.json({
-      uploadUrl: uploadUrlResp.data.uploadUrl,
-      authToken: uploadUrlResp.data.authorizationToken,
-      b2Name: b2Name,
-      publicPath: '/b2/' + b2Name
-    });
-  } catch (err) {
-    console.error('B2 upload-url error:', err);
-    res.status(500).json({ error: 'فشل تجهيز الرفع: ' + err.message });
   }
 });
 
