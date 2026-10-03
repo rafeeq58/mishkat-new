@@ -1,7 +1,8 @@
 /* ============================================================
-   Direct Upload to Backblaze B2 - Smart Interceptor
-   يعترض طلبات رفع الدروس ويرسل الملفات مباشرة إلى B2
-   لا يحتاج أي تعديل على app.js
+   Direct Upload to Backblaze B2 via Presigned URLs
+   - لا يحتاج CORS
+   - لا يحتاج Authorization في المتصفح
+   - يعمل مع أي حجم ملف
    ============================================================ */
 (function () {
   'use strict';
@@ -25,6 +26,7 @@
         && typeof body.append === 'function';
   }
 
+  // ✅ رفع الملف عبر presigned URL (PUT مع body خام)
   function uploadFileToB2(file, token) {
     return originalFetch('/api/b2/upload-url', {
       method: 'POST',
@@ -41,17 +43,16 @@
     .then(function (info) {
       return new Promise(function (resolve, reject) {
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', info.uploadUrl, true);
-        xhr.setRequestHeader('Authorization', info.authToken);
-        xhr.setRequestHeader('X-Bz-File-Name', encodeURIComponent(info.b2Name));
-        xhr.setRequestHeader('Content-Type', file.type || 'b2/x-auto');
-        xhr.setRequestHeader('X-Bz-Content-Sha1', 'do_not_verify');
+        // ✅ PUT بدلاً من POST
+        xhr.open('PUT', info.uploadUrl, true);
+        // ✅ رأس واحد فقط: Content-Type
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
 
         xhr.onload = function () {
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve(info.publicPath);
           } else {
-            reject(new Error('فشل الرفع إلى B2 (' + xhr.status + ')'));
+            reject(new Error('فشل الرفع (' + xhr.status + ')'));
           }
         };
         xhr.onerror = function () {
@@ -94,7 +95,7 @@
         };
 
         var isEdit = /\/api\/lessons\/\d+$/.test(url);
-        var jsonUrl = isEdit ? url + '/json' : url + '/json';
+        var jsonUrl = url + '/json';
 
         return originalFetch(jsonUrl, {
           method: isEdit ? 'PUT' : 'POST',
@@ -128,5 +129,5 @@
     return originalFetch(input, init);
   };
 
-  console.log('✅ Direct B2 upload active');
+  console.log('✅ Direct B2 upload active (presigned URLs)');
 })();
