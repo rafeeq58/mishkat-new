@@ -479,6 +479,23 @@ app.delete('/api/admin/points/:id', auth, adminOnly, function(req, res) {
   saveDB(); res.json({ ok: 1 });
 });
 
+// ============ MY RANK (Student) ============
+app.get('/api/me/rank', auth, function(req, res) {
+  if (req.user.role !== 'student') return res.status(403).json({ error: 'للطلاب فقط' });
+  var me = db.users.find(function(x) { return x.id === req.user.id; });
+  if (!me) return res.status(404).json({ error: 'غير موجود' });
+  var myGrade = me.grade_id;
+  var sameGrade = db.users.filter(function(u) { return u.role === 'student' && u.grade_id === myGrade; });
+  var scored = sameGrade.map(function(u) {
+    var total = db.points.filter(function(p) { return p.user_id === u.id; }).reduce(function(a,b) { return a + b.value; }, 0);
+    return { id: u.id, total: total };
+  }).sort(function(a,b) { return b.total - a.total; });
+  var myIndex = -1;
+  for (var i = 0; i < scored.length; i++) { if (scored[i].id === me.id) { myIndex = i; break; } }
+  var rank = myIndex >= 0 ? myIndex + 1 : null;
+  res.json({ rank: rank, totalStudents: scored.length });
+});
+
 app.get('/api/me/points', auth, function(req, res) {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'للطلاب فقط' });
   var ops = db.points.filter(function(p) { return p.user_id === req.user.id; }).sort(function(a,b) { return new Date(b.created_at) - new Date(a.created_at); });
