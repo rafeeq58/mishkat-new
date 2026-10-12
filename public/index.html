@@ -133,6 +133,21 @@
   <script src="/points-feature.js" defer></script>
   <script src="/direct-upload.js"></script>
   <script src="/certificate-enhanced.js" defer></script>
-  <script src="/upload-progress.js" defer></script>
+  <script>
+(function(){
+'use strict';
+if(!window.fetch)return;
+var O=window.fetch.bind(window);
+function S(){if(document.getElementById('ups-s'))return;var s=document.createElement('style');s.id='ups-s';s.textContent='#ups-ov{position:fixed;inset:0;background:rgba(10,8,20,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;direction:rtl;font-family:Cairo,sans-serif;}.ups-b{background:linear-gradient(145deg,#1e1b4b,#1a1a2e);border:1px solid rgba(168,85,247,0.35);border-radius:24px;padding:32px 28px;max-width:420px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,0.85);color:#fff;}.ups-i{font-size:56px;line-height:1;margin-bottom:10px;animation:ups-p 1.5s ease-in-out infinite;}@keyframes ups-p{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}.ups-t{font-size:18px;font-weight:900;color:#a855f7;margin-bottom:6px;}.ups-n{font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:22px;word-break:break-all;max-height:40px;overflow:hidden;}.ups-pc{font-size:56px;font-weight:900;background:linear-gradient(135deg,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:16px;}.ups-bb{height:12px;background:rgba(0,0,0,0.4);border-radius:10px;overflow:hidden;margin-bottom:14px;}.ups-bf{height:100%;background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899);border-radius:10px;transition:width 0.3s ease;box-shadow:0 0 15px rgba(236,72,153,0.7);}.ups-m{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);}.ups-h{font-size:11px;color:rgba(255,255,255,0.35);margin-top:14px;}';document.head.appendChild(s);}
+function F(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(2)+' GB';}
+function C(n,z){S();var o=document.getElementById('ups-ov');if(o)o.remove();var e=document.createElement('div');e.id='ups-ov';e.innerHTML='<div class="ups-b"><div class="ups-i" id="ups-i">📤</div><div class="ups-t" id="ups-t">جاري الرفع</div><div class="ups-n">'+n+'</div><div class="ups-pc" id="ups-pc">0%</div><div class="ups-bb"><div class="ups-bf" id="ups-bf" style="width:0%"></div></div><div class="ups-m"><span id="ups-l">0 B</span><span>'+F(z)+'</span></div><div class="ups-h">⚠️ لا تغلق الصفحة</div></div>';document.body.appendChild(e);return e;}
+function P(e,l,t){if(!e)return;var p=t?Math.round(l/t*100):0;if(p>100)p=100;var a=e.querySelector('#ups-pc'),b=e.querySelector('#ups-bf'),c=e.querySelector('#ups-l');if(a)a.textContent=p+'%';if(b)b.style.width=p+'%';if(c)c.textContent=F(l);}
+function D(e){if(!e)return;var i=e.querySelector('#ups-i'),t=e.querySelector('#ups-t');if(i)i.textContent='✅';if(t)t.textContent='تم الرفع بنجاح';setTimeout(function(){if(e.parentNode)e.remove();},700);}
+function G(b){if(!b||typeof b.get!=='function')return null;var k=['video_file','file','pdf_file','msg_file','program_file'];for(var i=0;i<k.length;i++){var v=b.get(k[i]);if(v&&v.size)return v;}return null;}
+function U(u,i,f){return new Promise(function(res,rej){var x=new XMLHttpRequest();x.open(i.method||'POST',u,true);var h=i.headers||{};Object.keys(h).forEach(function(k){try{x.setRequestHeader(k,h[k]);}catch(e){}});var o=C(f.name,f.size);x.upload.onprogress=function(e){if(e.lengthComputable)P(o,e.loaded,e.total);};x.onload=function(){var rh={};var rr=x.getAllResponseHeaders()||'';rr.split('\r\n').forEach(function(l){var idx=l.indexOf(':');if(idx>0)rh[l.slice(0,idx).trim().toLowerCase()]=l.slice(idx+1).trim();});if(x.status>=200&&x.status<300)D(o);else if(o.parentNode)o.remove();res(new Response(x.response,{status:x.status,statusText:x.statusText,headers:rh}));};x.onerror=function(){if(o.parentNode)o.remove();rej(new TypeError('Network failed'));};x.send(i.body);});}
+window.fetch=function(i,n){try{var u=typeof i==='string'?i:(i&&i.url?i.url:'');var m=((n&&n.method)||'GET').toUpperCase();var b=n&&n.body;if((m==='POST'||m==='PUT')&&b instanceof FormData){var f=G(b);if(f)return U(u,n||{},f);}}catch(e){}return O(i,n);};
+console.log('✅ Upload progress active');
+})();
+</script>
 </body>
 </html>
