@@ -1,0 +1,166 @@
+/* ============================================================
+   Upload Progress Indicator
+   يعرض شريط تقدم + نسبة مئوية أثناء رفع الفيديوهات والملفات
+   لا يعدل أي ملف آخر
+   ============================================================ */
+(function () {
+  'use strict';
+  if (!window.fetch) return;
+
+  var originalFetch = window.fetch.bind(window);
+
+  function injectStyles() {
+    if (document.getElementById('upload-progress-styles')) return;
+    var s = document.createElement('style');
+    s.id = 'upload-progress-styles';
+    s.textContent = [
+      '#upload-progress-overlay{position:fixed;inset:0;background:rgba(10,8,20,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;direction:rtl;font-family:Cairo,system-ui,sans-serif;}',
+      '.upg-box{background:linear-gradient(145deg,#1e1b4b,#1a1a2e);border:1px solid rgba(168,85,247,0.35);border-radius:24px;padding:32px 28px;max-width:420px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,0.85);color:#fff;}',
+      '.upg-icon{font-size:56px;line-height:1;margin-bottom:10px;animation:upgPulse 1.5s ease-in-out infinite;}',
+      '@keyframes upgPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}',
+      '.upg-title{font-size:18px;font-weight:900;color:#a855f7;margin-bottom:6px;}',
+      '.upg-name{font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:22px;word-break:break-all;max-height:40px;overflow:hidden;}',
+      '.upg-pct{font-size:56px;font-weight:900;background:linear-gradient(135deg,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:16px;}',
+      '.upg-bar-bg{height:12px;background:rgba(0,0,0,0.4);border-radius:10px;overflow:hidden;margin-bottom:14px;position:relative;}',
+      '.upg-bar-fill{height:100%;background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899);border-radius:10px;transition:width 0.3s ease;box-shadow:0 0 15px rgba(236,72,153,0.7);}',
+      '.upg-meta{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:4px;}',
+      '.upg-hint{font-size:11px;color:rgba(255,255,255,0.35);margin-top:14px;}',
+      '.upg-done .upg-icon{animation:none;}',
+      '.upg-done .upg-pct{color:#10b981;-webkit-text-fill-color:#10b981;}'
+    ].join('\n');
+    document.head.appendChild(s);
+  }
+
+  function fmtBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+    return (b / 1073741824).toFixed(2) + ' GB';
+  }
+
+  function createOverlay(name, size) {
+    injectStyles();
+    var old = document.getElementById('upload-progress-overlay');
+    if (old) old.remove();
+
+    var el = document.createElement('div');
+    el.id = 'upload-progress-overlay';
+    el.innerHTML =
+      '<div class="upg-box" id="upg-box">' +
+        '<div class="upg-icon" id="upg-icon">📤</div>' +
+        '<div class="upg-title" id="upg-title">جاري الرفع</div>' +
+        '<div class="upg-name">' + name + '</div>' +
+        '<div class="upg-pct" id="upg-pct">0%</div>' +
+        '<div class="upg-bar-bg"><div class="upg-bar-fill" id="upg-fill" style="width:0%"></div></div>' +
+        '<div class="upg-meta"><span id="upg-loaded">0 B</span><span>' + fmtBytes(size) + '</span></div>' +
+        '<div class="upg-hint" id="upg-hint">⚠️ لا تغلق الصفحة أثناء الرفع</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function setProgress(el, loaded, total) {
+    if (!el) return;
+    var pct = total ? Math.round((loaded / total) * 100) : 0;
+    if (pct > 100) pct = 100;
+    var p = el.querySelector('#upg-pct');
+    var f = el.querySelector('#upg-fill');
+    var l = el.querySelector('#upg-loaded');
+    if (p) p.textContent = pct + '%';
+    if (f) f.style.width = pct + '%';
+    if (l) l.textContent = fmtBytes(loaded);
+  }
+
+  function setDone(el) {
+    if (!el) return;
+    var box = el.querySelector('#upg-box');
+    var icon = el.querySelector('#upg-icon');
+    var title = el.querySelector('#upg-title');
+    var hint = el.querySelector('#upg-hint');
+    if (box) box.classList.add('upg-done');
+    if (icon) icon.textContent = '✅';
+    if (title) title.textContent = 'تم الرفع بنجاح';
+    if (hint) hint.textContent = '';
+  }
+
+  function removeOverlay(el, delay) {
+    if (!el) return;
+    setTimeout(function () { if (el.parentNode) el.remove(); }, delay || 0);
+  }
+
+  function getFileFromFormData(body) {
+    if (!body || typeof body.get !== 'function') return null;
+    var keys = ['video_file', 'file', 'pdf_file', 'msg_file', 'program_file'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = body.get(keys[i]);
+      if (v && v.size) return v;
+    }
+    return null;
+  }
+
+  function uploadWithProgress(url, init, file) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open(init.method || 'POST', url, true);
+
+      var headers = init.headers || {};
+      Object.keys(headers).forEach(function (k) {
+        try { xhr.setRequestHeader(k, headers[k]); } catch (e) {}
+      });
+
+      var overlay = createOverlay(file.name, file.size);
+
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) setProgress(overlay, e.loaded, e.total);
+      };
+
+      xhr.onload = function () {
+        var respHeaders = {};
+        var raw = xhr.getAllResponseHeaders() || '';
+        raw.split('\r\n').forEach(function (line) {
+          var idx = line.indexOf(':');
+          if (idx > 0) respHeaders[line.slice(0, idx).trim().toLowerCase()] = line.slice(idx + 1).trim();
+        });
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setDone(overlay);
+          removeOverlay(overlay, 700);
+        } else {
+          removeOverlay(overlay, 0);
+        }
+        resolve(new Response(xhr.response, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: respHeaders
+        }));
+      };
+
+      xhr.onerror = function () {
+        removeOverlay(overlay, 0);
+        reject(new TypeError('Network request failed'));
+      };
+
+      xhr.onabort = function () {
+        removeOverlay(overlay, 0);
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+
+      xhr.send(init.body);
+    });
+  }
+
+  window.fetch = function (input, init) {
+    try {
+      var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+      var method = ((init && init.method) || 'GET').toUpperCase();
+      var body = init && init.body;
+
+      if ((method === 'POST' || method === 'PUT') && body instanceof FormData) {
+        var file = getFileFromFormData(body);
+        if (file) return uploadWithProgress(url, init || {}, file);
+      }
+    } catch (e) {}
+    return originalFetch(input, init);
+  };
+
+  console.log('✅ Upload progress active');
+})();
