@@ -1,0 +1,578 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "المدير  المهندس  الدكتور رفيق رفاعي",
+      "email": "rfayrfyq58@gmail.com",
+      "password": "$2a$10$VAPLEr7hX4FYP4/TdBwQ7usi.48Mvtrf.CnbOlIWeKRrtnnpDogpW",
+      "role": "admin"
+    },
+    {
+      "id": 2,
+      "name": "مازن رفاعي",
+      "email": "mazen@rfy.com",
+      "phone": "+963968768219",
+      "grade_id": 1,
+      "school": "دراسة حرة",
+      "password": "$2a$10$TRZ9Uflpdx4HC/4bBnmvs.yzpYiVJ5G3o7Za/1Z0VMO4Nu68BRLmq",
+      "role": "student",
+      "program": "rsedtrfyguhi"
+    },
+    {
+      "id": 3,
+      "name": "kkkk",
+      "email": "mmm@jjj.com",
+      "phone": "0589529665",
+      "grade_id": 2,
+      "school": "دراسة حرة",
+      "password": "$2a$10$KfJ9LlhHh/4gk75dYBT55e/6nplnLDAiomu/4WW9dzzoY.jPlteam",
+      "role": "student"
+    },
+    {
+      "id": 4,
+      "name": "llll",
+      "email": "mmn@jjj.com",
+      "phone": "+968555555555",
+      "grade_id": 1,
+      "school": "دراسة حرة",
+      "password": "$2a$10$xqTSZo9Wqb4Q37NOKqWzquNyXb9xOOMG/wpO9PLglgss/mJJvoLAu",
+      "role": "student"
+    },
+    {
+      "id": 9,
+      "name": "رفيق رفاعي",
+      "email": "anas@rfy.com",
+      "password": "$2a$10$0/bG1YBs/x5E8YIBFBNRyuMzzawOPA7Oqd65FLJNqNuLIfVsDeAGS",
+      "role": "assistant",
+      "permissions": [
+        "students_add",
+        "quizzes_add",
+        "program_edit"
+      ],
+      "password_plain": "123456789"
+    },
+    {
+      "id": 10,
+      "name": "mmmm",
+      "email": "rfayrfyq66@gmail.com",
+      "phone": "+968555555555",
+      "grade_id": 2,
+      "school": "دراسة حرة",
+      "password": "$2a$10$5tGK1JQmKY8NjpjUryAdJ.dUaIHQTioD71mQo.dymysiUXWzNudCy",
+      "password_plain": "147852",
+      "role": "student"
+    },
+    {
+      "id": 11,
+      "name": "ghjkm",
+      "email": "admin@edu.com",
+      "phone": "0589529665",
+      "grade_id": 3,
+      "school": "دراسة حرة",
+      "password": "$2a$10$P9slDZh4klC4gunxe24xjuwMMSlUL6ix2UlzpMNFDGWFhj4gEqxKK",
+      "password_plain": "admin123",
+      "role": "student"
+    }
+  ],
+  "lessons": [
+    {
+      "id": 1,
+      "title": "ggghjj",
+      "description": "hhhhhh",
+      "content": "",
+      "video_url": "/uploads/1790755975135-568392021.mp4",
+      "file_path": null,
+      "subject_id": 1,
+      "order_index": 0
+    },
+    {
+      "id": 2,
+      "title": "sghvjbk",
+      "description": "hhhhhh",
+      "content": "",
+      "video_url": "/uploads/1790756810933-849634369.mp4",
+      "file_path": null,
+      "subject_id": 2,
+      "order_index": 0
+    },
+    {
+      "id": 3,
+      "title": "gj",
+      "description": "",
+      "content": "",
+      "video_url": "https://youtu.be/cKz5jWPlZZc?si=m62LKC0D6oNLKEvZ",
+      "file_path": null,
+      "subject_id": 2,
+      "order_index": 0
+    },
+    {
+      "id": 4,
+      "title": "fyfmy",
+      "description": "",
+      "content": "",
+      "video_url": "/uploads/1790756865510-138158848.mp4",
+      "file_path": null,
+      "subject_id": 8,
+      "order_index": 0
+    },
+    {
+      "id": 5,
+      "title": "....",
+      "description": "",
+      "content": "",
+      "video_url": "https://youtu.be/cKz5jWPlZZc?si=m62LKC0D6oNLKEvZ",
+      "file_path": null,
+      "subject_id": 1,
+      "order_index": 0
+    }
+  ],
+  "progress": [
+    {
+      "id": 1,
+      "user_id": 2,
+      "lesson_id": 1,
+      "completed": 0
+    },
+    {
+      "id": 2,
+      "user_id": 2,
+      "lesson_id": 2,
+      "completed": 0
+    },
+    {
+      "id": 3,
+      "user_id": 2,
+      "lesson_id": 3,
+      "completed": 0
+    },
+    {
+      "id": 4,
+      "user_id": 2,
+      "lesson_id": 5,
+      "completed": 0
+    }
+  ],
+  "quizzes": [
+    {
+      "id": 1,
+      "title": "xdfcgvhbj",
+      "description": "",
+      "time_limit": 2,
+      "requirements": [],
+      "grade_id": 1,
+      "subject_id": 1,
+      "questions": [
+        {
+          "id": 1,
+          "question": "edrtfygu",
+          "options": [
+            "15",
+            "2",
+            "3",
+            "88"
+          ],
+          "correct_index": 0
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "b nnj",
+      "description": "dcvbn",
+      "time_limit": 2,
+      "requirements": [
+        "sedtrfyguhijo"
+      ],
+      "grade_id": 1,
+      "subject_id": 1,
+      "questions": [
+        {
+          "id": 1,
+          "question": "fghjkl",
+          "options": [
+            "211",
+            "15",
+            "3",
+            "2"
+          ],
+          "correct_index": 0
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "ghbj",
+      "description": "dcvbn",
+      "time_limit": 4,
+      "requirements": [],
+      "grade_id": 1,
+      "subject_id": null,
+      "questions": [
+        {
+          "id": 1,
+          "question": "uh",
+          "options": [
+            "2",
+            "3",
+            "5",
+            "4"
+          ],
+          "correct_index": 0
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "efre",
+      "description": "jn",
+      "time_limit": 5,
+      "requirements": [
+        "htrh"
+      ],
+      "grade_id": 1,
+      "subject_id": 1,
+      "questions": [
+        {
+          "id": 1,
+          "question": "gt5rthgy",
+          "options": [
+            "445",
+            "55",
+            "554",
+            "454"
+          ],
+          "correct_index": 0
+        },
+        {
+          "id": 2,
+          "question": "6tyu",
+          "options": [
+            "425",
+            "124",
+            "41",
+            "45"
+          ],
+          "correct_index": 0
+        },
+        {
+          "id": 3,
+          "question": "thdgd",
+          "options": [
+            "353",
+            "53",
+            "325",
+            "35"
+          ],
+          "correct_index": 0
+        }
+      ]
+    }
+  ],
+  "submissions": [
+    {
+      "id": 1,
+      "user_id": 2,
+      "quiz_id": 1,
+      "score": 1,
+      "total": 1,
+      "answers": [
+        0
+      ],
+      "submitted_at": "2026-09-30T08:48:06.832Z"
+    },
+    {
+      "id": 2,
+      "user_id": 2,
+      "quiz_id": 2,
+      "score": 0,
+      "total": 1,
+      "answers": [
+        1
+      ],
+      "submitted_at": "2026-09-30T09:10:17.539Z"
+    },
+    {
+      "id": 3,
+      "user_id": 2,
+      "quiz_id": 2,
+      "score": 0,
+      "total": 1,
+      "answers": [
+        3
+      ],
+      "submitted_at": "2026-09-30T09:10:28.564Z"
+    },
+    {
+      "id": 4,
+      "user_id": 2,
+      "quiz_id": 3,
+      "score": 0,
+      "total": 1,
+      "answers": [
+        3
+      ],
+      "submitted_at": "2026-09-30T09:26:40.830Z"
+    },
+    {
+      "id": 5,
+      "user_id": 2,
+      "quiz_id": 4,
+      "score": 2,
+      "total": 3,
+      "answers": [
+        0,
+        2,
+        0
+      ],
+      "submitted_at": "2026-09-30T11:10:43.761Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": 3,
+      "user_id": 4,
+      "type": "lesson_new",
+      "title": "درس جديد",
+      "message": "تم إضافة درس: sghvjbk",
+      "link": "lessons",
+      "created_at": "2026-09-30T08:26:50.940Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 5,
+      "user_id": 4,
+      "type": "lesson_new",
+      "title": "درس جديد",
+      "message": "تم إضافة درس: gj",
+      "link": "lessons",
+      "created_at": "2026-09-30T08:27:04.955Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 7,
+      "user_id": 4,
+      "type": "lesson_new",
+      "title": "درس جديد",
+      "message": "تم إضافة درس: fyfmy",
+      "link": "lessons",
+      "created_at": "2026-09-30T08:27:45.515Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 9,
+      "user_id": 4,
+      "type": "lesson_new",
+      "title": "درس جديد",
+      "message": "تم إضافة درس: ....",
+      "link": "lessons",
+      "created_at": "2026-09-30T08:28:08.781Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 11,
+      "user_id": 4,
+      "type": "quiz_new",
+      "title": "اختبار جديد",
+      "message": "تم إضافة اختبار: xdfcgvhbj",
+      "link": "quizzes",
+      "created_at": "2026-09-30T08:47:41.315Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 13,
+      "user_id": 4,
+      "type": "quiz_new",
+      "title": "اختبار جديد",
+      "message": "تم إضافة اختبار: b nnj",
+      "link": "quizzes",
+      "created_at": "2026-09-30T09:09:49.742Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 15,
+      "user_id": 4,
+      "type": "quiz_new",
+      "title": "اختبار جديد",
+      "message": "تم إضافة اختبار: ghbj",
+      "link": "quizzes",
+      "created_at": "2026-09-30T09:26:24.933Z",
+      "read_by": [
+        2
+      ]
+    },
+    {
+      "id": 17,
+      "user_id": 2,
+      "type": "quiz_new",
+      "title": "اختبار جديد",
+      "message": "تم إضافة اختبار: efre",
+      "link": "quizzes",
+      "created_at": "2026-09-30T11:10:24.575Z",
+      "read_by": []
+    },
+    {
+      "id": 18,
+      "user_id": 4,
+      "type": "quiz_new",
+      "title": "اختبار جديد",
+      "message": "تم إضافة اختبار: efre",
+      "link": "quizzes",
+      "created_at": "2026-09-30T11:10:24.575Z",
+      "read_by": []
+    }
+  ],
+  "grades": [
+    {
+      "id": 1,
+      "name": "صف تاسع"
+    },
+    {
+      "id": 2,
+      "name": "باكلوريا"
+    },
+    {
+      "id": 3,
+      "name": "سابع"
+    }
+  ],
+  "subjects": [
+    {
+      "id": 1,
+      "name": "عربي",
+      "grade_id": 1
+    },
+    {
+      "id": 2,
+      "name": "رياضيات",
+      "grade_id": 1
+    },
+    {
+      "id": 3,
+      "name": "رياضيات",
+      "grade_id": 2
+    },
+    {
+      "id": 4,
+      "name": "فيزياء",
+      "grade_id": 2
+    },
+    {
+      "id": 5,
+      "name": "فرنسي",
+      "grade_id": 3
+    },
+    {
+      "id": 6,
+      "name": "انكليزي",
+      "grade_id": 3
+    },
+    {
+      "id": 7,
+      "name": "عربي",
+      "grade_id": 2
+    },
+    {
+      "id": 8,
+      "name": "dfcvgbh",
+      "grade_id": 1
+    }
+  ],
+  "favorites": [],
+  "files": [
+    {
+      "id": 1,
+      "title": "hjkl",
+      "notes": "",
+      "file_path": "/uploads/1790757262331-137390357.pdf",
+      "original_name": "ÙÙÙ Ø§ÙØ¬ÙØ§Ø¯.pdf",
+      "grade_id": null,
+      "subject_id": null,
+      "created_at": "2026-09-30T08:34:22.341Z"
+    }
+  ],
+  "ratings": [],
+  "points": [
+    {
+      "id": 1,
+      "user_id": 2,
+      "value": 10,
+      "reason": ";l",
+      "created_at": "2026-09-30T09:02:19.336Z",
+      "created_by": "المدير  المهندس  الدكتور رفيق رفاعي"
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "to_student_id": 2,
+      "from_admin": "المدير  المهندس  الدكتور رفيق رفاعي",
+      "type": "text",
+      "content": "kol khraaa",
+      "file_path": null,
+      "file_name": "",
+      "created_at": "2026-09-30T09:01:55.976Z",
+      "read": true
+    },
+    {
+      "id": 2,
+      "to_student_id": 2,
+      "from_admin": "المدير  المهندس  الدكتور رفيق رفاعي",
+      "type": "text",
+      "content": "fygvbhunj",
+      "file_path": null,
+      "file_name": "",
+      "created_at": "2026-09-30T12:57:13.422Z",
+      "read": false
+    }
+  ],
+  "seq": {
+    "users": 12,
+    "lessons": 6,
+    "progress": 5,
+    "quizzes": 5,
+    "submissions": 6,
+    "notifications": 19,
+    "grades": 4,
+    "subjects": 9,
+    "files": 2,
+    "points": 2,
+    "messages": 3,
+    "grade_programs": 1,
+    "activities": 3
+  },
+  "grade_programs": [],
+  "activities": [
+    {
+      "id": 1,
+      "user_id": 9,
+      "user_name": "رفيق رفاعي",
+      "user_role": "assistant",
+      "action": "add",
+      "target_type": "طالب",
+      "target_name": "ghjkm",
+      "created_at": "2026-09-30T11:00:45.053Z"
+    },
+    {
+      "id": 2,
+      "user_id": 1,
+      "user_name": "المدير  المهندس  الدكتور رفيق رفاعي",
+      "user_role": "admin",
+      "action": "add",
+      "target_type": "اختبار",
+      "target_name": "efre",
+      "created_at": "2026-09-30T11:10:24.576Z"
+    }
+  ]
+}
