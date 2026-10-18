@@ -885,4 +885,31 @@ if (!db.users.find(function(u) { return u.role === 'admin'; })) {
   saveDB();
   console.log('Admin created: admin@edu.com / admin123');
 }
+// مصفوفة تخزين الزيارات إذا لم تكن موجودة
+if (!db.visits) db.visits = [];
+
+// نقطة نهاية لتسجيل دخول الطالب تلقائياً
+app.post('/api/log-visit', (req, res) => {
+const { studentName } = req.body;
+if (!studentName) return res.status(400).json({ error: 'Name required' });
+
+const today = new Date().toISOString().split('T')[0];
+// إضافة الزيارة مع الوقت والتاريخ
+db.visits.unshift({
+studentName: studentName,
+date: today,
+time: new Date().toLocaleTimeString('ar-SY')
+});
+// الاحتفاظ بآخر 300 سجل فقط لعدم زيادة حجم الملف
+if (db.visits.length > 300) db.visits.pop();
+
+saveDB();
+res.json({ success: true });
+});
+
+// نقطة نهاية لجلب السجل للمدير
+app.get('/api/admin/visits', (req, res) => {
+if (!db.visits) db.visits = [];
+res.json(db.visits);
+});
 app.listen(PORT, function() { console.log('Server ready: http://localhost:' + PORT); });
