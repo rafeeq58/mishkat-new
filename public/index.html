@@ -482,6 +482,60 @@ window.fetch=function(i,n){try{var u=typeof i==='string'?i:(i&&i.url?i.url:'');v
 console.log('✅ Upload progress active');
 })();
 </script>
+  <script>
+// 1. تسجيل دخول الطالب تلقائياً عند فتح المنصة
+window.addEventListener('DOMContentLoaded', () => {
+try {
+const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+if (currentUser && currentUser.name && currentUser.role === 'student') {
+fetch('/api/log-visit', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ studentName: currentUser.name })
+});
+}
+} catch(e) { console.log(e); }
+});
+
+// 2. دالة لعرض الطلاب للمدير (يمكنك ربطها بزر في لوحة التحكم لديك)
+async function showTodayVisits() {
+let box = document.getElementById('adminVisitsBox');
+if (!box) {
+// إنشاء صندوق عرض تلقائياً إذا لم يكن موجوداً في الصفحة
+box = document.createElement('div');
+box.id = 'adminVisitsBox';
+box.style.cssText = 'background:rgba(20,20,40,0.95); border:1px solid #a855f7; padding:15px; border-radius:15px; margin:15px; color:#fff;';
+document.body.prepend(box);
+}
+box.innerHTML = '🔄 جاري تحميل سجل الطلاب اليوم...';
+
+try {
+const res = await fetch('/api/admin/visits');
+const visits = await res.json();
+
+const today = new Date().toISOString().split('T')[0];
+const todayVisits = visits.filter(v => v.date === today);
+
+if (todayVisits.length === 0) {
+box.innerHTML = '<h3>📊 سجل الطلاب اليوم</h3><p style="color:#f472b6; margin-top:5px;">لم يقم أي طالب بفتح المنصة اليوم حتى الآن.</p>';
+return;
+}
+
+let html = '<h3>📊 الطلاب الذين فتحوا المنصة اليوم</h3><ul style="list-style:none; padding:0; margin-top:10px; max-height:180px; overflow-y:auto;">';
+todayVisits.forEach(v => {
+html += `<li style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between;">
+<span>👤 ${v.studentName}</span>
+<span style="color:#a855f7; font-size:12px;">⏰ ${v.time}</span>
+</li>`;
+});
+html += '</ul><button onclick="document.getElementById(\'adminVisitsBox\').remove()" style="margin-top:10px; background:#a855f7; color:#fff; border:none; padding:5px 15px; border-radius:8px; cursor:pointer;">إغلاق القائمة</button>';
+box.innerHTML = html;
+} catch(e) {
+box.innerHTML = 'حدث خطأ في جلب البيانات.';
+}
+}
+</script>
+
 </body>
 </html>
 
