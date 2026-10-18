@@ -19,7 +19,7 @@ app.use('/uploads', express.static('uploads'));
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 if (!fs.existsSync('data')) fs.mkdirSync('data');
 
-const DB_FILE = 'data/db.json';
+const DB_FILE = path.join(__dirname, 'uploads', 'db.json');
 let db = { users: [], lessons: [], progress: [], quizzes: [], submissions: [], notifications: [], grades: [], subjects: [], favorites: [], files: [], ratings: [], points: [], messages: [], seq: { users: 1, lessons: 1, progress: 1, quizzes: 1, submissions: 1, notifications: 1, grades: 1, subjects: 1, files: 1, points: 1, messages: 1, activities: 1, grade_programs: 1 } };
 
 function loadDB() {
