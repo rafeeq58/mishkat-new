@@ -535,7 +535,29 @@ box.innerHTML = 'حدث خطأ في جلب البيانات.';
 }
 }
 </script>
-
+  
+<script>
+// حل سريع ونهائي: جلب وعرض أحدث برنامج أرسله المدير للطالب مباشرة
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await fetch('/api/schedules');
+        const schedules = await res.json();
+        if (schedules && schedules.length > 0) {
+            const latest = schedules[schedules.length - 1];
+            // يبحث عن أي مكان مخصص لعرض البرنامج أو يضع البرنامج تلقائياً
+            const target = document.querySelector('.schedule-view, #scheduleContainer, div');
+            if (target && latest) {
+                target.innerHTML = `<div style="padding:15px; background:rgba(168,85,247,0.1); border-radius:12px; color:#fff; margin:10px 0;">
+                    <h3 style="color:#a855f7; margin-bottom:5px;">📅 البرنامج الدراسي الجديد</h3>
+                    <p>${latest.content || latest.details || 'تم إرسال البرنامج بنجاح'}</p>
+                </div>`;
+            }
+        }
+    } catch(e) {
+        console.log("Schedule load error:", e);
+    }
+});
+</script>
 </body>
 </html>
 
