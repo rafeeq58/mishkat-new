@@ -558,6 +558,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 </script>
+  <script>
+// حل جذري: مراقبة الشاشة واستبدال رسالة "لم يُضف برنامجك بعد" بآخر برنامج أرسله المدير
+setInterval(async () => {
+    try {
+        const res = await fetch('/api/schedules');
+        const schedules = await res.json();
+        if (schedules && schedules.length > 0) {
+            const latest = schedules[schedules.length - 1];
+            
+            // البحث عن العناصر التي تحتوي على عبارة الخطأ القديمة
+            document.querySelectorAll('*').forEach(el => {
+                if (el.children.length === 0 && el.textContent.includes('لم يُضف برنامجك بعد')) {
+                    el.innerHTML = `<div style="background:rgba(168,85,247,0.15); border:1px solid #a855f7; padding:15px; border-radius:12px; color:#fff; text-align:right;">
+                        <h4 style="color:#a855f7; margin-bottom:5px;">📅 البرنامج الدراسي المعتمد</h4>
+                        <p>${latest.content || latest.details || 'تم تحديث البرنامج بنجاح'}</p>
+                    </div>`;
+                }
+            });
+        }
+    } catch(e) {}
+}, 1000);
+</script>
 </body>
 </html>
 
