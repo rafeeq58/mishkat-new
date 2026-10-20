@@ -912,4 +912,44 @@ app.get('/api/admin/visits', (req, res) => {
 if (!db.visits) db.visits = [];
 res.json(db.visits);
 });
+// 1. تسجيل دخول الطالب تلقائياً بالتاريخ والوقت
+app.post('/api/log-visit', (req, res) => {
+    const { studentName } = req.body;
+    if (!studentName) return res.status(400).json({ error: 'Name required' });
+    if (!db.visits) db.visits = [];
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ar-SY'); // التاريخ
+    const timeStr = now.toLocaleTimeString('ar-SY'); // الوقت
+
+    db.visits.unshift({
+        studentName: studentName,
+        date: dateStr,
+        time: timeStr
+    });
+
+    if (db.visits.length > 500) db.visits.pop();
+    saveDB();
+    res.json({ success: true });
+});
+
+// 2. جلب سجل الزيارات للمدير
+app.get('/api/admin/visits', (req, res) => {
+    if (!db.visits) db.visits = [];
+    res.json(db.visits);
+});
+
+// 3. مسح سجل الزيارات بالكامل من قبل المدير
+app.delete('/api/admin/visits', (req, res) => {
+    db.visits = [];
+    saveDB();
+    res.json({ success: true });
+});
+
+// 4. رابط لتحميل نسخة احتياطية كاملة من قاعدة البيانات لعدم ضياعها أبداً
+app.get('/api/admin/export-db', (req, res) => {
+    res.setHeader('Content-Disposition', 'attachment; filename=db.json');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(db, null, 2));
+});
 app.listen(PORT, function() { console.log('Server ready: http://localhost:' + PORT); });
