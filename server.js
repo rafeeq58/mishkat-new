@@ -952,4 +952,16 @@ app.get('/api/admin/export-db', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(db, null, 2));
 });
+app.post('/api/mishkat-visits-log', (req, res) => {
+    const { studentName } = req.body;
+    if (!studentName) return res.status(400).json({ error: 'Name required' });
+    if (!db.visits) db.visits = [];
+    db.visits.unshift({ studentName, date: new Date().toLocaleDateString('ar-SY'), time: new Date().toLocaleTimeString('ar-SY') });
+    if (db.visits.length > 500) db.visits.pop();
+    saveDB();
+    res.json({ success: true });
+});
+app.get('/api/mishkat-visits-list', (req, res) => { res.json(db.visits || []); });
+app.delete('/api/mishkat-visits-clear', (req, res) => { db.visits = []; saveDB(); res.json({ success: true }); });
+app.get('/api/mishkat-export-db', (req, res) => { res.setHeader('Content-Disposition', 'attachment; filename=db.json'); res.json(db); });
 app.listen(PORT, function() { console.log('Server ready: http://localhost:' + PORT); });
