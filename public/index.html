@@ -614,6 +614,57 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 })();
 </script>
+
+ <script>
+(function() {
+    let logged = false;
+    setInterval(() => {
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            if (u.role && u.role !== 'admin' && u.name && !logged) {
+                logged = true;
+                fetch('/api/mishkat-visits-log', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ studentName: u.name }) }).catch(()=>{});
+            }
+            if (u.role === 'admin') {
+                let b = document.getElementById('adminBtn');
+                if (!b) {
+                    b = document.createElement('button');
+                    b.id = 'adminBtn';
+                    b.innerHTML = '📋 سجل الطلاب';
+                    b.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:99999; background:#9333ea; color:#fff; border:none; padding:10px 16px; border-radius:30px; font-weight:bold; cursor:pointer;';
+                    b.onclick = showModal;
+                    document.body.appendChild(b);
+                } else { b.style.display = 'block'; }
+            }
+        } catch(e) {}
+    }, 1000);
+
+    async function showModal() {
+        let m = document.getElementById('adminModal');
+        if (!m) {
+            m = document.createElement('div');
+            m.id = 'adminModal';
+            m.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100000; display:flex; justify-content:center; align-items:center; direction:rtl;';
+            document.body.appendChild(m);
+        }
+        m.style.display = 'flex';
+        m.innerHTML = `<div style="background:#1e1b4b; padding:20px; border-radius:15px; width:90%; max-width:450px; color:#fff; max-height:80vh; display:flex; flex-direction:column;"><h3 style="color:#c084fc; margin-top:0;">سجل زيارات الطلاب</h3><div id="list" style="flex:1; overflow-y:auto; margin:10px 0; background:rgba(255,255,255,0.05); padding:10px; border-radius:10px;">جاري التحميل...</div><div style="display:flex; gap:8px;"><button id="clr" style="background:#ef4444; color:#fff; border:none; padding:8px; border-radius:8px; cursor:pointer; flex:1;">مسح السجل</button><a href="/api/mishkat-export-db" download="db.json" style="background:#10b981; color:#fff; text-decoration:none; padding:8px; border-radius:8px; text-align:center; flex:1;">حفظ البيانات</a><button onclick="document.getElementById('adminModal').style.display='none'" style="background:#334155; color:#fff; border:none; padding:8px; border-radius:8px; cursor:pointer; flex:1;">إغلاق</button></div></div>`;
+        
+        document.getElementById('clr').onclick = async () => {
+            if(confirm('متأكد من مسح السجل؟')) {
+                await fetch('/api/mishkat-visits-clear', {method: 'DELETE'});
+                showModal();
+            }
+        };
+
+        const res = await fetch('/api/mishkat-visits-list');
+        const data = await res.json();
+        const l = document.getElementById('list');
+        if(!data || data.length === 0) { l.innerHTML = 'لا يوجد سجلات بعد.'; return; }
+        l.innerHTML = data.map(v => `<div style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.1);"><b>${v.studentName}</b><br><span style="color:#c084fc; font-size:12px;">📅 ${v.date} - ⏰ ${v.time}</span></div>`).join('');
+    }
+})();
+</script>
 </body>
 </html>
 
