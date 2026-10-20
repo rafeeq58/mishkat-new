@@ -482,59 +482,7 @@ window.fetch=function(i,n){try{var u=typeof i==='string'?i:(i&&i.url?i.url:'');v
 console.log('✅ Upload progress active');
 })();
 </script>
-  <script>
-// 1. تسجيل دخول الطالب تلقائياً عند فتح المنصة
-window.addEventListener('DOMContentLoaded', () => {
-try {
-const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-if (currentUser && currentUser.name && currentUser.role === 'student') {
-fetch('/api/log-visit', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ studentName: currentUser.name })
-});
-}
-} catch(e) { console.log(e); }
-});
-
-// 2. دالة لعرض الطلاب للمدير (يمكنك ربطها بزر في لوحة التحكم لديك)
-async function showTodayVisits() {
-let box = document.getElementById('adminVisitsBox');
-if (!box) {
-// إنشاء صندوق عرض تلقائياً إذا لم يكن موجوداً في الصفحة
-box = document.createElement('div');
-box.id = 'adminVisitsBox';
-box.style.cssText = 'background:rgba(20,20,40,0.95); border:1px solid #a855f7; padding:15px; border-radius:15px; margin:15px; color:#fff;';
-document.body.prepend(box);
-}
-box.innerHTML = '🔄 جاري تحميل سجل الطلاب اليوم...';
-
-try {
-const res = await fetch('/api/admin/visits');
-const visits = await res.json();
-
-const today = new Date().toISOString().split('T')[0];
-const todayVisits = visits.filter(v => v.date === today);
-
-if (todayVisits.length === 0) {
-box.innerHTML = '<h3>📊 سجل الطلاب اليوم</h3><p style="color:#f472b6; margin-top:5px;">لم يقم أي طالب بفتح المنصة اليوم حتى الآن.</p>';
-return;
-}
-
-let html = '<h3>📊 الطلاب الذين فتحوا المنصة اليوم</h3><ul style="list-style:none; padding:0; margin-top:10px; max-height:180px; overflow-y:auto;">';
-todayVisits.forEach(v => {
-html += `<li style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between;">
-<span>👤 ${v.studentName}</span>
-<span style="color:#a855f7; font-size:12px;">⏰ ${v.time}</span>
-</li>`;
-});
-html += '</ul><button onclick="document.getElementById(\'adminVisitsBox\').remove()" style="margin-top:10px; background:#a855f7; color:#fff; border:none; padding:5px 15px; border-radius:8px; cursor:pointer;">إغلاق القائمة</button>';
-box.innerHTML = html;
-} catch(e) {
-box.innerHTML = 'حدث خطأ في جلب البيانات.';
-}
-}
-</script>
+ 
   
 <script>
 // حل سريع ونهائي: جلب وعرض أحدث برنامج أرسله المدير للطالب مباشرة
@@ -558,27 +506,113 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 </script>
-  <script>
-// حل جذري: مراقبة الشاشة واستبدال رسالة "لم يُضف برنامجك بعد" بآخر برنامج أرسله المدير
-setInterval(async () => {
-    try {
-        const res = await fetch('/api/schedules');
-        const schedules = await res.json();
-        if (schedules && schedules.length > 0) {
-            const latest = schedules[schedules.length - 1];
-            
-            // البحث عن العناصر التي تحتوي على عبارة الخطأ القديمة
-            document.querySelectorAll('*').forEach(el => {
-                if (el.children.length === 0 && el.textContent.includes('لم يُضف برنامجك بعد')) {
-                    el.innerHTML = `<div style="background:rgba(168,85,247,0.15); border:1px solid #a855f7; padding:15px; border-radius:12px; color:#fff; text-align:right;">
-                        <h4 style="color:#a855f7; margin-bottom:5px;">📅 البرنامج الدراسي المعتمد</h4>
-                        <p>${latest.content || latest.details || 'تم تحديث البرنامج بنجاح'}</p>
-                    </div>`;
+  <!-- ====== نظام سجل دخول الطلاب والنسخ الاحتياطي للمدير ====== -->
+<script>
+(function() {
+    let visitLogged = false;
+
+    setInterval(() => {
+        try {
+            // قراءة المستخدم من المفتاح الصحيح 'user' الذي اكتشفناه
+            const rawUser = localStorage.getItem('user');
+            if (!rawUser) {
+                const btn = document.getElementById('mishkatAdminLogsBtn');
+                if (btn) btn.style.display = 'none';
+                visitLogged = false;
+                return;
+            }
+
+            const currentUser = JSON.parse(rawUser);
+
+            // أ) إذا كان المستخدم طالباً: نسجل دخوله بالتاريخ والوقت مرة واحدة عند فتح المنصة
+            if (currentUser.role !== 'admin' && currentUser.name && !visitLogged) {
+                visitLogged = true;
+                fetch('/api/log-visit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentName: currentUser.name })
+                }).catch(() => {});
+            }
+
+            // ب) إذا كان المستخدم هو المدير: نظهر له زر "سجل الطلاب" في أسفل الشاشة
+            if (currentUser.role === 'admin') {
+                let btn = document.getElementById('mishkatAdminLogsBtn');
+                if (!btn) {
+                    btn = document.createElement('button');
+                    btn.id = 'mishkatAdminLogsBtn';
+                    btn.innerHTML = '📋 سجل دخول الطلاب';
+                    btn.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:99999; background:linear-gradient(135deg, #9333ea, #4f46e5); color:#fff; border:1px solid #c084fc; padding:10px 18px; border-radius:50px; font-family:inherit; font-weight:bold; font-size:14px; cursor:pointer; box-shadow:0 4px 15px rgba(147,51,234,0.5); display:flex; align-items:center; gap:8px;';
+                    btn.onclick = showAdminVisitsModal;
+                    document.body.appendChild(btn);
+                } else {
+                    btn.style.display = 'flex';
                 }
-            });
+            }
+        } catch (e) {}
+    }, 1000);
+
+    async function showAdminVisitsModal() {
+        let modal = document.getElementById('mishkatVisitsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'mishkatVisitsModal';
+            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100000; display:flex; justify-content:center; align-items:center; padding:15px; backdrop-filter:blur(5px); direction:rtl;';
+            document.body.appendChild(modal);
         }
-    } catch(e) {}
-}, 1000);
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div style="background:#1e1b4b; border:1px solid #a855f7; border-radius:16px; width:100%; max-width:520px; max-height:82vh; display:flex; flex-direction:column; padding:20px; color:#fff; box-shadow:0 10px 30px rgba(0,0,0,0.7);">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px; margin-bottom:15px;">
+                    <h3 style="margin:0; font-size:17px; color:#e9d5ff;">📊 سجل فتح المنصة (الوقت والتاريخ)</h3>
+                    <button onclick="document.getElementById('mishkatVisitsModal').style.display='none'" style="background:none; border:none; color:#cbd5e1; font-size:20px; cursor:pointer;">✖</button>
+                </div>
+                
+                <div id="mishkatVisitsList" style="flex:1; overflow-y:auto; padding-left:5px;">
+                    <p style="text-align:center; color:#cbd5e1;">🔄 جاري تحميل السجل...</p>
+                </div>
+
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:15px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+                    <button id="clearVisitsBtn" style="background:#ef4444; color:#fff; border:none; padding:9px 14px; border-radius:10px; font-family:inherit; font-weight:bold; cursor:pointer; flex:1;">🗑️ مسح السجل</button>
+                    <a href="/api/admin/export-db" download="db.json" style="background:#10b981; color:#fff; text-decoration:none; padding:9px 14px; border-radius:10px; font-family:inherit; font-weight:bold; text-align:center; flex:1;">💾 حفظ بيانات المنصة (db.json)</a>
+                    <button onclick="document.getElementById('mishkatVisitsModal').style.display='none'" style="background:#334155; color:#fff; border:none; padding:9px 14px; border-radius:10px; font-family:inherit; cursor:pointer;">إغلاق</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('clearVisitsBtn').onclick = async function() {
+            if (!confirm('هل تريد بالتأكيد مسح سجل دخول الطلاب؟')) return;
+            this.innerText = 'جاري المسح...';
+            await fetch('/api/admin/visits', { method: 'DELETE' });
+            showAdminVisitsModal();
+        };
+
+        const listEl = document.getElementById('mishkatVisitsList');
+        try {
+            const res = await fetch('/api/admin/visits');
+            const visits = await res.json();
+            if (!visits || visits.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:25px 0;">لا يوجد أي تسجيل دخول للطلاب في السجل حالياً.</p>';
+                return;
+            }
+            let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+            visits.forEach(v => {
+                html += `
+                    <div style="background:rgba(255,255,255,0.06); padding:10px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; border-right:4px solid #a855f7;">
+                        <div style="font-weight:bold; font-size:14px;">👤 ${v.studentName}</div>
+                        <div style="font-size:12px; color:#cbd5e1; text-align:left;">
+                            <div style="color:#c084fc;">📅 ${v.date}</div>
+                            <div>⏰ ${v.time}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            listEl.innerHTML = html;
+        } catch (err) {
+            listEl.innerHTML = '<p style="text-align:center; color:#f87171;">⚠️ يرجى الانتظار دقيقة ريثما ينتهي Render من التحديث ثم اضغط مرة أخرى.</p>';
+        }
+    }
+})();
 </script>
 </body>
 </html>
