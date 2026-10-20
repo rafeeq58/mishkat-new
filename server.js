@@ -7,6 +7,42 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+// ====== نظام سجل الزيارات والنسخ الاحتياطي ======
+app.all('/api/visits-box', (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const dbPath = path.join(__dirname, 'data', 'db.json');
+        let dataObj = (typeof db !== 'undefined' && db) ? db : (fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, 'utf8')) : {});
+        if (!dataObj.visits) dataObj.visits = [];
+
+        const action = req.query.action;
+        if (action === 'log' && req.query.name) {
+            dataObj.visits.unshift({
+                studentName: req.query.name,
+                date: new Date().toLocaleDateString('ar-SY'),
+                time: new Date().toLocaleTimeString('ar-SY')
+            });
+            if (dataObj.visits.length > 500) dataObj.visits.pop();
+            fs.writeFileSync(dbPath, JSON.stringify(dataObj, null, 2), 'utf8');
+            return res.json({ ok: true });
+        }
+        if (action === 'clear') {
+            dataObj.visits = [];
+            fs.writeFileSync(dbPath, JSON.stringify(dataObj, null, 2), 'utf8');
+            return res.json({ ok: true });
+        }
+        if (action === 'export') {
+            res.setHeader('Content-Disposition', 'attachment; filename=db.json');
+            res.setHeader('Content-Type', 'application/json');
+            return res.send(JSON.stringify(dataObj, null, 2));
+        }
+        return res.json(dataObj.visits);
+    } catch (e) {
+        return res.json([]);
+    }
+});
+// ================================================
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'mishkat-secret-key-2026-final';
 
@@ -912,56 +948,6 @@ app.get('/api/admin/visits', (req, res) => {
 if (!db.visits) db.visits = [];
 res.json(db.visits);
 });
-// 1. تسجيل دخول الطالب تلقائياً بالتاريخ والوقت
-app.post('/api/log-visit', (req, res) => {
-    const { studentName } = req.body;
-    if (!studentName) return res.status(400).json({ error: 'Name required' });
-    if (!db.visits) db.visits = [];
 
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('ar-SY'); // التاريخ
-    const timeStr = now.toLocaleTimeString('ar-SY'); // الوقت
 
-    db.visits.unshift({
-        studentName: studentName,
-        date: dateStr,
-        time: timeStr
-    });
-
-    if (db.visits.length > 500) db.visits.pop();
-    saveDB();
-    res.json({ success: true });
-});
-
-// 2. جلب سجل الزيارات للمدير
-app.get('/api/admin/visits', (req, res) => {
-    if (!db.visits) db.visits = [];
-    res.json(db.visits);
-});
-
-// 3. مسح سجل الزيارات بالكامل من قبل المدير
-app.delete('/api/admin/visits', (req, res) => {
-    db.visits = [];
-    saveDB();
-    res.json({ success: true });
-});
-
-// 4. رابط لتحميل نسخة احتياطية كاملة من قاعدة البيانات لعدم ضياعها أبداً
-app.get('/api/admin/export-db', (req, res) => {
-    res.setHeader('Content-Disposition', 'attachment; filename=db.json');
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(db, null, 2));
-});
-app.post('/api/mishkat-visits-log', (req, res) => {
-    const { studentName } = req.body;
-    if (!studentName) return res.status(400).json({ error: 'Name required' });
-    if (!db.visits) db.visits = [];
-    db.visits.unshift({ studentName, date: new Date().toLocaleDateString('ar-SY'), time: new Date().toLocaleTimeString('ar-SY') });
-    if (db.visits.length > 500) db.visits.pop();
-    saveDB();
-    res.json({ success: true });
-});
-app.get('/api/mishkat-visits-list', (req, res) => { res.json(db.visits || []); });
-app.delete('/api/mishkat-visits-clear', (req, res) => { db.visits = []; saveDB(); res.json({ success: true }); });
-app.get('/api/mishkat-export-db', (req, res) => { res.setHeader('Content-Disposition', 'attachment; filename=db.json'); res.json(db); });
 app.listen(PORT, function() { console.log('Server ready: http://localhost:' + PORT); });
