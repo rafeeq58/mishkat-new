@@ -544,6 +544,196 @@ console.log('✅ Upload progress active');
     }
 })();
 </script>
+ <!-- ====== بداية ميزة تحميل الدروس والمشاهدة بدون إنترنت للطلاب ====== -->
+<script>
+(function() {
+    // 1. إنشاء قاعدة بيانات محلية داخل جهاز الطالب (IndexedDB) لحفظ الفيديوهات بدون إنترنت
+    const dbName = 'MishkatOfflineVideosDB';
+    let idb;
+    const req = indexedDB.open(dbName, 1);
+    req.onupgradeneeded = (e) => {
+        idb = e.target.result;
+        if (!idb.objectStoreNames.contains('lessons')) {
+            idb.createObjectStore('lessons', { keyPath: 'id' });
+        }
+    };
+    req.onsuccess = (e) => { idb = e.target.result; };
+
+    // دالة حفظ الفيديو داخل جهاز الطالب
+    function saveLessonOffline(id, title, blob, fileType) {
+        return new Promise((resolve, reject) => {
+            if (!idb) return reject();
+            const tx = idb.transaction('lessons', 'readwrite');
+            tx.objectStore('lessons').put({
+                id: id,
+                title: title,
+                blob: blob,
+                type: fileType,
+                date: new Date().toLocaleDateString('ar-SY')
+            });
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject();
+        });
+    }
+
+    // 2. مراقبة الشاشة لإظهار الأزرار للطلاب فقط
+    setInterval(() => {
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!u.role || u.role === 'admin') {
+                const offBtn = document.getElementById('mishkatOfflineLibraryBtn');
+                if (offBtn) offBtn.style.display = 'none';
+                return;
+            }
+
+            // أ) إظهار زر "دروسي المحملة" للطالب
+            let libBtn = document.getElementById('mishkatOfflineLibraryBtn');
+            if (!libBtn) {
+                libBtn = document.createElement('button');
+                libBtn.id = 'mishkatOfflineLibraryBtn';
+                libBtn.innerHTML = '📂 الدروس المحملة (بدون نت)';
+                libBtn.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:99998; background:linear-gradient(135deg, #0ea5e9, #2563eb); color:#fff; border:none; padding:10px 16px; border-radius:30px; font-weight:bold; cursor:pointer; font-family:inherit; box-shadow:0 4px 12px rgba(0,0,0,0.4); font-size:13px;';
+                libBtn.onclick = openOfflineModal;
+                document.body.appendChild(libBtn);
+            } else {
+                libBtn.style.display = 'block';
+            }
+
+            // ب) إضافة زر "تحميل الدرس" تحت كل فيديو أو درس يظهر للطالب تلقائياً
+            document.querySelectorAll('video, a[href$=".mp4"], a[href$=".pdf"]').forEach((mediaEl, idx) => {
+                if (mediaEl.dataset.offlineInjected) return;
+                mediaEl.dataset.offlineInjected = 'true';
+
+                const src = mediaEl.currentSrc || mediaEl.src || mediaEl.href || (mediaEl.querySelector('source') && mediaEl.querySelector('source').src);
+                if (!src) return;
+
+                // استخراج اسم الدرس من الكرت المحيط بالفيديو
+                const card = mediaEl.closest('div') || mediaEl.parentElement;
+                const heading = card ? card.querySelector('h1, h2, h3, h4, b, strong') : null;
+                const lessonTitle = heading ? heading.innerText.trim() : ('درس رقم ' + (idx + 1));
+
+                // إنشاء شريط التحميل تحت الدرس
+                const bar = document.createElement('div');
+                bar.style.cssText = 'margin-top:8px; margin-bottom:10px; display:flex; gap:8px; flex-wrap:wrap; direction:rtl;';
+
+                // زر الحفظ داخل التطبيق (بدون نت) + تحميل للجهاز
+                const dlBtn = document.createElement('button');
+                dlBtn.innerHTML = '📥 تحميل الدرس للمشاهدة بدون إنترنت';
+                dlBtn.style.cssText = 'background:#10b981; color:#fff; border:none; padding:8px 14px; border-radius:8px; font-weight:bold; cursor:pointer; font-family:inherit; font-size:13px; flex:1; display:flex; justify-content:center; align-items:center; gap:6px;';
+                
+                dlBtn.onclick = async (e) => {
+                    e.preventDefault();
+                    dlBtn.disabled = true;
+                    dlBtn.innerHTML = '⏳ جاري التحميل والحفظ...';
+                    try {
+                        // 1. جلب الملف وحفظه داخل ذاكرة التطبيق للمشاهدة بدون إنترنت
+                        const res = await fetch(src);
+                        const blob = await res.blob();
+                        await saveLessonOffline(src, lessonTitle, blob, blob.type || 'video/mp4');
+
+                        // 2. تنزيل نسخة مباشرة على جهاز/هاتف الطالب أيضاً
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = lessonTitle + (src.endsWith('.pdf') ? '.pdf' : '.mp4');
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+
+                        dlBtn.style.background = '#059669';
+                        dlBtn.innerHTML = '✅ تم الحفظ (متاح بدون نت)';
+                    } catch (err) {
+                        // في حال كان الرابط خارجياً، نقوم بالتحميل المباشر التقليدي
+                        const a = document.createElement('a');
+                        a.href = src;
+                        a.download = lessonTitle;
+                        a.target = '_blank';
+                        a.click();
+                        dlBtn.innerHTML = '✅ تم بدء التحميل';
+                    }
+                };
+
+                bar.appendChild(dlBtn);
+                mediaEl.parentNode.insertBefore(bar, mediaEl.nextSibling);
+            });
+        } catch(e) {}
+    }, 1500);
+
+    // 3. نافذة عرض وتشغيل الدروس المحملة بدون إنترنت
+    function openOfflineModal() {
+        let m = document.getElementById('mishkatOfflineModal');
+        if (!m) {
+            m = document.createElement('div');
+            m.id = 'mishkatOfflineModal';
+            m.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:100000; display:flex; justify-content:center; align-items:center; direction:rtl; padding:15px;';
+            document.body.appendChild(m);
+        }
+        m.style.display = 'flex';
+        m.innerHTML = `
+            <div style="background:#0f172a; border:1px solid #38bdf8; padding:20px; border-radius:16px; width:100%; max-width:500px; color:#fff; max-height:85vh; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                    <h3 style="color:#38bdf8; margin:0; font-size:16px;">📂 دروسي المحملة (تعمل بدون إنترنت)</h3>
+                    <button onclick="document.getElementById('mishkatOfflineModal').style.display='none'" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">✖</button>
+                </div>
+                <div id="offlinePlayerBox" style="margin-top:10px; display:none;"></div>
+                <div id="offlineLessonsList" style="flex:1; overflow-y:auto; margin:12px 0; display:flex; flex-direction:column; gap:8px;">جاري فتح الذاكرة...</div>
+                <button onclick="document.getElementById('mishkatOfflineModal').style.display='none'" style="background:#334155; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-family:inherit; font-weight:bold;">إغلاق</button>
+            </div>
+        `;
+
+        const listEl = document.getElementById('offlineLessonsList');
+        const playerBox = document.getElementById('offlinePlayerBox');
+
+        if (!idb) {
+            listEl.innerHTML = 'الذاكرة غير جاهزة بعد.';
+            return;
+        }
+
+        const tx = idb.transaction('lessons', 'readonly');
+        const reqAll = tx.objectStore('lessons').getAll();
+        reqAll.onsuccess = () => {
+            const items = reqAll.result || [];
+            if (items.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:20px 0;">لم تقم بتحميل أي درس بعد. اضغط على "📥 تحميل الدرس" تحت أي فيديو لحفظه هنا.</p>';
+                return;
+            }
+            listEl.innerHTML = '';
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.style.cssText = 'background:rgba(255,255,255,0.06); padding:10px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;';
+                row.innerHTML = `
+                    <div style="flex:1;">
+                        <b style="font-size:14px; display:block;">🎬 ${item.title}</b>
+                        <span style="font-size:11px; color:#94a3b8;">تاريخ الحفظ: ${item.date}</span>
+                    </div>
+                    <button class="play-off" style="background:#0ea5e9; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold;">▶ تشغيل</button>
+                    <button class="del-off" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-family:inherit;">🗑️</button>
+                `;
+
+                // زر التشغيل بدون إنترنت
+                row.querySelector('.play-off').onclick = () => {
+                    const url = URL.createObjectURL(item.blob);
+                    playerBox.style.display = 'block';
+                    if (item.type && item.type.includes('pdf')) {
+                        playerBox.innerHTML = `<iframe src="${url}" style="width:100%; height:250px; border-radius:8px; border:none;"></iframe>`;
+                    } else {
+                        playerBox.innerHTML = `<video src="${url}" controls autoplay style="width:100%; max-height:240px; border-radius:8px; background:#000;"></video>`;
+                    }
+                };
+
+                // زر حذف الدرس من الذاكرة
+                row.querySelector('.del-off').onclick = () => {
+                    const delTx = idb.transaction('lessons', 'readwrite');
+                    delTx.objectStore('lessons').delete(item.id);
+                    delTx.oncomplete = () => openOfflineModal();
+                };
+
+                listEl.appendChild(row);
+            });
+        };
+    }
+})();
+</script>
+<!-- ====== نهاية ميزة تحميل الدروس بدون إنترنت ====== -->
 </body>
 </html>
 
