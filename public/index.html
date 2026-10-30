@@ -544,10 +544,10 @@ console.log('✅ Upload progress active');
     }
 })();
 </script>
-<!-- ====== بداية ميزة تحميل الدروس والمشاهدة بدون إنترنت (نسخة القائمة الجانبية) ====== -->
+<!-- ====== بداية ميزة تحميل الدروس والمشاهدة بدون إنترنت (النسخة المضمونة للقائمة) ====== -->
 <script>
 (function() {
-    // 1. إعداد الذاكرة
+    // 1. إعداد قاعدة البيانات المحلية للدروس
     const dbName = 'MishkatOfflineVideosDB';
     let idb;
     const req = indexedDB.open(dbName, 1);
@@ -571,65 +571,56 @@ console.log('✅ Upload progress active');
         });
     }
 
-    // 2. المراقبة والإضافة للقائمة الجانبية
+    // 2. البحث الدقيق عن القائمة الجانبية وإضافة الخانة
     setInterval(() => {
         try {
             const u = JSON.parse(localStorage.getItem('user') || '{}');
+            // إخفاء الخانة إذا كان المستخدم مديراً
             if (!u.role || u.role === 'admin') {
                 const offItem = document.getElementById('mishkatOfflineMenuItem');
                 if (offItem) offItem.style.display = 'none';
                 return;
             }
 
-            // أ) إضافة الخانة داخل القائمة الجانبية بشكل متطابق 100% مع باقي الخانات
             let libItem = document.getElementById('mishkatOfflineMenuItem');
-            // في حال إعادة تحميل القائمة في الموقع، نتأكد من إضافته مجدداً
+            // تأكيد وجود العنصر فعلياً في الشاشة
             if (libItem && !document.body.contains(libItem)) libItem = null;
 
             if (!libItem) {
-                // الكلمات المفتاحية للبحث عن القائمة الصحيحة ونسخ تصميمها
-                const menuWords = ['الاختبارات', 'الملفات', 'الدروس', 'برنامجي', 'تقدمي'];
+                // البحث عن خانة "الاختبارات" أو "الملفات" لنسخ شكلها ومكانها
+                const links = document.querySelectorAll('a, li');
                 let refItem = null;
-                let matchedWord = '';
-                
-                const allLinks = document.querySelectorAll('a, li, div');
-                for (let el of allLinks) {
-                    const txt = el.innerText ? el.innerText.trim() : '';
-                    if (menuWords.includes(txt) && el.closest('nav, ul, aside, [class*="menu"], [class*="sidebar"]')) {
-                        refItem = el.tagName === 'A' ? el : (el.closest('a') || el.closest('li') || el);
-                        matchedWord = txt;
+                for (let el of links) {
+                    if (el.textContent && (el.textContent.includes('الاختبارات') || el.textContent.includes('الملفات'))) {
+                        refItem = el;
                         break;
                     }
                 }
 
+                // إذا وجدنا الخانة المرجعية، ننسخها ونضع خانتنا بجانبها
                 if (refItem && refItem.parentNode) {
-                    // نسخ الخانة الأصلية بتصميمها بالكامل
                     libItem = refItem.cloneNode(true);
                     libItem.id = 'mishkatOfflineMenuItem';
                     
-                    // استبدال النص مع الحفاظ على الأيقونة الأصلية للمنصة
-                    libItem.innerHTML = libItem.innerHTML.replace(matchedWord, 'الدروس المحملة');
-                    
-                    // تمييز اللون قليلاً ليكون واضحاً (لون أزرق فاتح)
-                    libItem.style.color = '#38bdf8';
+                    // استبدال النص مع تغيير لون الأيقونة أو النص للتمييز
+                    libItem.innerHTML = libItem.innerHTML.replace(/الاختبارات|الملفات/g, 'الدروس المحملة');
+                    libItem.style.color = '#38bdf8'; 
                     
                     if (libItem.tagName === 'A') libItem.href = '#';
                     libItem.onclick = (e) => {
                         e.preventDefault();
-                        // إغلاق القائمة الجانبية عند الضغط على الخانة (في الجوال)
-                        const closeBtn = document.querySelector('.close, [class*="close"], .overlay');
-                        if (closeBtn) closeBtn.click();
+                        document.body.click(); // محاولة إغلاق القائمة المنسدلة عند الضغط
                         openOfflineModal();
                     };
                     
-                    // إدراج الخانة الجديدة في القائمة
+                    // إدراج الخانة الجديدة في القائمة مباشرة
                     refItem.parentNode.appendChild(libItem);
                 }
             } else {
                 libItem.style.display = ''; 
             }
 
-            // ب) إضافة زر "تحميل الدرس" تحت كل فيديو يظهر للطالب تلقائياً
+            // إضافة زر "حفظ للمشاهدة بدون إنترنت" تحت كل درس
             document.querySelectorAll('video, a[href$=".mp4"], a[href$=".pdf"]').forEach((mediaEl, idx) => {
                 if (mediaEl.dataset.offlineInjected) return;
                 mediaEl.dataset.offlineInjected = 'true';
@@ -682,7 +673,7 @@ console.log('✅ Upload progress active');
         } catch(e) {}
     }, 1500);
 
-    // 3. نافذة عرض وتشغيل الدروس المحملة بدون إنترنت
+    // 3. نافذة عرض وتشغيل الدروس المحملة 
     function openOfflineModal() {
         let m = document.getElementById('mishkatOfflineModal');
         if (!m) {
@@ -695,7 +686,7 @@ console.log('✅ Upload progress active');
         m.innerHTML = `
             <div style="background:#0f172a; border:1px solid #38bdf8; padding:20px; border-radius:16px; width:100%; max-width:500px; color:#fff; max-height:85vh; display:flex; flex-direction:column;">
                 <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-                    <h3 style="color:#38bdf8; margin:0; font-size:16px;">📂 دروسي المحملة (تعمل بدون إنترنت)</h3>
+                    <h3 style="color:#38bdf8; margin:0; font-size:16px;">📂 دروسي المحملة (بدون إنترنت)</h3>
                     <button onclick="document.getElementById('mishkatOfflineModal').style.display='none'" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">✖</button>
                 </div>
                 <div id="offlinePlayerBox" style="margin-top:10px; display:none;"></div>
@@ -717,7 +708,7 @@ console.log('✅ Upload progress active');
         reqAll.onsuccess = () => {
             const items = reqAll.result || [];
             if (items.length === 0) {
-                listEl.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:20px 0;">لم تقم بحفظ أي درس بعد. اضغط على "📥 حفظ للمشاهدة بدون إنترنت" تحت أي فيديو لحفظه هنا.</p>';
+                listEl.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:20px 0;">لم تقم بحفظ أي درس بعد. اضغط على "📥 حفظ للمشاهدة بدون إنترنت" تحت أي فيديو لحفظه.</p>';
                 return;
             }
             listEl.innerHTML = '';
@@ -727,10 +718,10 @@ console.log('✅ Upload progress active');
                 row.innerHTML = `
                     <div style="flex:1;">
                         <b style="font-size:14px; display:block;">🎬 ${item.title}</b>
-                        <span style="font-size:11px; color:#94a3b8;">تاريخ الحفظ: ${item.date}</span>
+                        <span style="font-size:11px; color:#94a3b8;">${item.date}</span>
                     </div>
-                    <button class="play-off" style="background:#0ea5e9; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold;">▶ تشغيل</button>
-                    <button class="del-off" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-family:inherit;">🗑️</button>
+                    <button class="play-off" style="background:#0ea5e9; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold;">▶ تشغيل</button>
+                    <button class="del-off" style="background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer;">🗑️</button>
                 `;
 
                 row.querySelector('.play-off').onclick = () => {
