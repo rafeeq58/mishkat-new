@@ -544,10 +544,10 @@ console.log('✅ Upload progress active');
     }
 })();
 </script>
-<!-- ====== بداية ميزة تحميل الدروس والمشاهدة بدون إنترنت (النسخة المضمونة للقائمة) ====== -->
+<!-- ====== بداية ميزة تحميل الدروس والمشاهدة بدون إنترنت ====== -->
 <script>
 (function() {
-    // 1. إعداد قاعدة البيانات المحلية للدروس
+    // 1. إعداد قاعدة البيانات المحلية للدروس المحملة
     const dbName = 'MishkatOfflineVideosDB';
     let idb;
     const req = indexedDB.open(dbName, 1);
@@ -571,11 +571,10 @@ console.log('✅ Upload progress active');
         });
     }
 
-    // 2. البحث الدقيق عن القائمة الجانبية وإضافة الخانة
+    // 2. البحث الشامل عن خانات القائمة (نقاطي / الإشعارات / شهاداتي) وإضافة الخانة تحتها
     setInterval(() => {
         try {
             const u = JSON.parse(localStorage.getItem('user') || '{}');
-            // إخفاء الخانة إذا كان المستخدم مديراً
             if (!u.role || u.role === 'admin') {
                 const offItem = document.getElementById('mishkatOfflineMenuItem');
                 if (offItem) offItem.style.display = 'none';
@@ -583,44 +582,59 @@ console.log('✅ Upload progress active');
             }
 
             let libItem = document.getElementById('mishkatOfflineMenuItem');
-            // تأكيد وجود العنصر فعلياً في الشاشة
             if (libItem && !document.body.contains(libItem)) libItem = null;
 
             if (!libItem) {
-                // البحث عن خانة "الاختبارات" أو "الملفات" لنسخ شكلها ومكانها
-                const links = document.querySelectorAll('a, li');
-                let refItem = null;
-                for (let el of links) {
-                    if (el.textContent && (el.textContent.includes('الاختبارات') || el.textContent.includes('الملفات'))) {
-                        refItem = el;
-                        break;
+                // البحث في جميع عناصر الصفحة عن خانة "نقاطي" أو "الإشعارات" أو "شهاداتي"
+                const allElements = document.querySelectorAll('*');
+                let targetTextEl = null;
+
+                for (let el of allElements) {
+                    if (el.children.length === 0) {
+                        const txt = (el.textContent || '').trim();
+                        if (txt === 'نقاطي' || txt === 'الإشعارات' || txt === 'شهاداتي') {
+                            targetTextEl = el;
+                            break;
+                        }
                     }
                 }
 
-                // إذا وجدنا الخانة المرجعية، ننسخها ونضع خانتنا بجانبها
-                if (refItem && refItem.parentNode) {
-                    libItem = refItem.cloneNode(true);
-                    libItem.id = 'mishkatOfflineMenuItem';
-                    
-                    // استبدال النص مع تغيير لون الأيقونة أو النص للتمييز
-                    libItem.innerHTML = libItem.innerHTML.replace(/الاختبارات|الملفات/g, 'الدروس المحملة');
-                    libItem.style.color = '#38bdf8'; 
-                    
-                    if (libItem.tagName === 'A') libItem.href = '#';
-                    libItem.onclick = (e) => {
-                        e.preventDefault();
-                        document.body.click(); // محاولة إغلاق القائمة المنسدلة عند الضغط
-                        openOfflineModal();
-                    };
-                    
-                    // إدراج الخانة الجديدة في القائمة مباشرة
-                    refItem.parentNode.appendChild(libItem);
+                if (targetTextEl) {
+                    // الصعود للعنصر الأب الذي يمثل سطر الخانة الكامل (الأيقونة + النص)
+                    let menuItemRow = targetTextEl;
+                    while (menuItemRow.parentElement && menuItemRow.parentElement.children.length <= 3 && menuItemRow.parentElement.tagName !== 'NAV' && menuItemRow.parentElement.tagName !== 'UL') {
+                        menuItemRow = menuItemRow.parentElement;
+                    }
+
+                    if (menuItemRow && menuItemRow.parentElement) {
+                        libItem = menuItemRow.cloneNode(true);
+                        libItem.id = 'mishkatOfflineMenuItem';
+                        
+                        // تغيير النص والأيقونة إلى الدروس المحملة
+                        libItem.innerHTML = `
+                            <span style="font-size:18px; margin-left:10px;">📥</span>
+                            <span>الدروس المحملة</span>
+                        `;
+                        libItem.style.cursor = 'pointer';
+                        libItem.style.color = '#38bdf8';
+
+                        libItem.onclick = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const overlay = document.getElementById('pwaOverlay') || document.querySelector('.overlay, .modal-backdrop');
+                            if (overlay) overlay.click();
+                            openOfflineModal();
+                        };
+
+                        // وضع الخانة في آخر القائمة مباشرة تحت "نقاطي"
+                        menuItemRow.parentElement.appendChild(libItem);
+                    }
                 }
             } else {
-                libItem.style.display = ''; 
+                libItem.style.display = '';
             }
 
-            // إضافة زر "حفظ للمشاهدة بدون إنترنت" تحت كل درس
+            // 3. إضافة زر التحميل تحت كل فيديو أو ملف PDF
             document.querySelectorAll('video, a[href$=".mp4"], a[href$=".pdf"]').forEach((mediaEl, idx) => {
                 if (mediaEl.dataset.offlineInjected) return;
                 mediaEl.dataset.offlineInjected = 'true';
@@ -671,9 +685,9 @@ console.log('✅ Upload progress active');
                 mediaEl.parentNode.insertBefore(bar, mediaEl.nextSibling);
             });
         } catch(e) {}
-    }, 1500);
+    }, 1000);
 
-    // 3. نافذة عرض وتشغيل الدروس المحملة 
+    // 4. نافذة تشغيل الدروس المحملة بدون إنترنت
     function openOfflineModal() {
         let m = document.getElementById('mishkatOfflineModal');
         if (!m) {
