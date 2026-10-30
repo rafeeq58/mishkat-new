@@ -586,15 +586,38 @@ console.log('✅ Upload progress active');
                 return;
             }
 
-            // أ) إظهار زر "دروسي المحملة" للطالب
+           // أ) إظهار خيار "الدروس المحملة" كخانة داخل قائمة المزيد
             let libBtn = document.getElementById('mishkatOfflineLibraryBtn');
             if (!libBtn) {
-                libBtn = document.createElement('button');
+                libBtn = document.createElement('div');
                 libBtn.id = 'mishkatOfflineLibraryBtn';
-                libBtn.innerHTML = '📂 الدروس المحملة (بدون نت)';
-                libBtn.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:99998; background:linear-gradient(135deg, #0ea5e9, #2563eb); color:#fff; border:none; padding:10px 16px; border-radius:30px; font-weight:bold; cursor:pointer; font-family:inherit; box-shadow:0 4px 12px rgba(0,0,0,0.4); font-size:13px;';
-                libBtn.onclick = openOfflineModal;
-                document.body.appendChild(libBtn);
+                // تصميم الخانة لتتناسق مع القائمة (خلفية شفافة أنيقة)
+                libBtn.innerHTML = `
+                    <a href="#" style="display:flex; align-items:center; padding:12px 15px; color:#fff; text-decoration:none; background:rgba(14, 165, 233, 0.15); margin-top:8px; border-radius:10px; font-weight:bold; border:1px solid rgba(14,165,233,0.3); transition:0.3s;">
+                        <span style="font-size:18px; margin-left:12px;">📂</span>
+                        <span>الدروس المحملة (بدون نت)</span>
+                    </a>
+                `;
+                libBtn.onclick = (e) => { e.preventDefault(); openOfflineModal(); };
+                
+                // البحث التلقائي عن قائمة "المزيد" أو القائمة الجانبية لإضافة الخانة بداخلها
+                let menus = document.querySelectorAll('ul, .menu, nav, .sidebar');
+                let targetMenu = null;
+                for (let el of menus) {
+                    // نبحث عن القائمة التي تحتوي على روابط التطبيق الأساسية
+                    if (el.innerText.includes('الرئيسية') || el.innerText.includes('تسجيل الخروج') || el.innerText.includes('المزيد')) {
+                        targetMenu = el;
+                        break;
+                    }
+                }
+
+                if (targetMenu) {
+                    targetMenu.appendChild(libBtn); // إضافته كخانة في القائمة مباشرة
+                } else {
+                    // في حال كان الطالب في شاشة ليس فيها قائمة، يظهر كزر في أعلى الشاشة (وليس الأسفل) لكي لا يغطي الأزرار
+                    libBtn.style.cssText = 'position:fixed; top:70px; left:15px; z-index:99998;';
+                    document.body.appendChild(libBtn);
+                }
             } else {
                 libBtn.style.display = 'block';
             }
